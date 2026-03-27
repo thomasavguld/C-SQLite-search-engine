@@ -3,9 +3,9 @@
 
 int main() {
 	sqlite3 *db;
-	int db_conn = sqlite3_open("data/test.db", &db);
+	int rc = sqlite3_open("data/test.db", &db);
 
-	if (db_conn != SQLITE_OK) {
+	if (rc != SQLITE_OK) {
 		printf("No DB conn.\n");
 		return 1;
 	}
