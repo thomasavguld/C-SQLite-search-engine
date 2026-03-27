@@ -1,0 +1,5 @@
+search
+*.o
+*.db
+.DS_Store
+.vscode/
