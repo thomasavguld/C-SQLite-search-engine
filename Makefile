@@ -1,5 +1,12 @@
+CC = clang
+SRC = src/main.c
+OUT = build/search
+DBDIR = data
+
 all:
-	clang src/main.c -o search -lsqlite3
+	mkdir -p build
+	mkdir -p data
+	$(CC) $(SRC) -o $(OUT) -lsqlite3
 
 clean:
-	rm -f search
+	rm -rf build/search
