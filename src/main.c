@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <sqlite3.h>
 
-#define DB_PATH "data/test.db"
+#define DB_PATH "./db/test.db"
 
 // Loop through and print selected data
 
@@ -22,7 +22,7 @@ int main() {
 	sqlite3 *db;
 	char *errMsg = 0;
 
-	int rc = sqlite3_open("DB_PATH", &db);
+	int rc = sqlite3_open(DB_PATH, &db);
 
 	if (rc) {
 		printf("Cannot open database connection.\n");
@@ -48,7 +48,7 @@ int main() {
 	// Insert values into table "documents"
 	
 	const char *insert_sql =
-		"INSERT INTO documents (content) VALUES ('lorem ipsum eller nåt annat nonsens');";
+		"INSERT INTO documents (content) VALUES ('123ABC');";
 
 	rc = sqlite3_exec(db, insert_sql, 0, 0, &errMsg);
 
