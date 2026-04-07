@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <sqlite3.h>
 
-#define DB_PATH "./db/test.db"
+#define DB_PATH "./warehouse/test.db"
 
 // Loop through and print selected data
 
