@@ -1,7 +1,7 @@
 CC = clang
 SRC = src/main.c
 OUT = build/search
-DBDIR = data
+DBDIR = db
 
 all:
 	mkdir -p build
