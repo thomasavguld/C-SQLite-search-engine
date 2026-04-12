@@ -3,7 +3,7 @@
 #include <sqlite3.h>
 #include <dirent.h>
 
-#define DB_PATH "./db/database.db"
+#define DB_PATH "./db/c_search.db"
 
 void list_files(const char *path, sqlite3 *db); 
 char *read_file(const char *filepath);
@@ -39,11 +39,11 @@ int main() {
 		sqlite3_free(errMsg);
 		sqlite3_close(db);
 		return 1;
+	}
 	
 	
 	// Run ingestion
 	list_files("./warehouse", db);
-
 
 	// Select all data from documents  
 
@@ -74,8 +74,6 @@ int main() {
 	sqlite3_close(db);
 
 	return 0;
-
-}
 
 }
 
