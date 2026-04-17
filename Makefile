@@ -10,4 +10,4 @@ all:
 
 clean:
 	rm -rf build/search
-	rm -rf db/database.db
+	rm -rf db/c_search.db

@@ -7,10 +7,10 @@
 
 // I/O (file system)
 char *read_file(const char *filepath);
-void list_files(const char *path, sqlite3 *db);
+void list_files(const char *path, sqlite3 *db, sqlite3_stmt *stmt); 
 
 // Data base insertion
-void insert_document(sqlite3 *db, const char *filename, const char *content);
+void insert_document(sqlite3_stmt *stmt, const char *filename, const char *content);
 
 // Reading from database
 int callback(void *data, int argc, char **argv, char **colNames);
@@ -55,11 +55,21 @@ int main() {
 	
 	// Run ingestion
 	
+	const char *insert_sql =
+		"INSERT INTO documents(filename, content) "
+		"VALUES(:filename, :content);";
+
+	sqlite3_stmt *stmt;
+	
+	sqlite3_prepare_v2(db, insert_sql, -1, &stmt, NULL);
+
 	sqlite3_exec(db, "BEGIN;", 0, 0 ,0);
 
-	list_files("./warehouse", db);
+	list_files("./warehouse", db, stmt);
 
 	sqlite3_exec(db, "COMMIT;", 0, 0, 0);
+
+	sqlite3_finalize(stmt);
 
 	// Select data from documents  
 
@@ -96,11 +106,12 @@ int main() {
 
 // List files
 
-void list_files(const char *path, sqlite3 *db) {
+void list_files(const char *path, sqlite3 *db, sqlite3_stmt *stmt) {
+
 	struct dirent *entry;
 	DIR *dir = opendir(path);
 
-	if (dir == NULL) {
+	if (!dir) {
 		printf("Warehouse directory is empty.\n");
 		return;
 	}
@@ -108,28 +119,28 @@ void list_files(const char *path, sqlite3 *db) {
 	while ((entry = readdir(dir)) != NULL) {
 
 		if (entry->d_name[0] == '.') continue;
-
+		
 		char filepath[256];
 		snprintf(filepath, sizeof(filepath), "%s/%s", path, entry->d_name);
 
 		char *content = read_file(filepath);
+		if (!content) continue;
 
-		if (content != NULL) {
-			insert_document(db, entry->d_name, content);
-			free(content);
+		insert_document(stmt, entry->d_name, content);
+
+		free(content);
 
 		}
-	}
 
 	closedir(dir);
 
-}
+	}
 
 char *read_file(const char *filepath) {
 	FILE *file = fopen(filepath, "r");
 	if (!file) return NULL;
 
-	fseek(file, SEEK_END);
+	fseek(file, 0, SEEK_END);
 	long size = ftell(file);
 	rewind(file);
 	
@@ -156,20 +167,7 @@ char *read_file(const char *filepath) {
 	return buffer;
 }
 
-void insert_document(sqlite3 *db, const char *filename, const char *content) {
-	
-	sqlite3_stmt *stmt;
-
-	const char *sql =
-		"INSERT INTO documents(filename, content) "
-		"VALUES(:filename, :content);";
-
-	int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
-
-	if (rc != SQLITE_OK) {
-		printf("Prepare error: %s\n", sqlite3_errmsg(db));
-		return;
-	}
+void insert_document(sqlite3_stmt *stmt, const char *filename, const char *content) {
 
 	int idx_filename = sqlite3_bind_parameter_index(stmt, ":filename");
 	int idx_content = sqlite3_bind_parameter_index(stmt, ":content");
@@ -177,13 +175,14 @@ void insert_document(sqlite3 *db, const char *filename, const char *content) {
 	sqlite3_bind_text(stmt, idx_filename, filename, -1, SQLITE_TRANSIENT);	
 	sqlite3_bind_text(stmt, idx_content, content, -1, SQLITE_TRANSIENT);
 
-	rc = sqlite3_step(stmt);
+	int rc = sqlite3_step(stmt);
 
 	if (rc != SQLITE_DONE) {
-		printf("Insert error: %s\n", sqlite3_errmsg(db));
+		printf("Insert error: %s\n", sqlite3_errmsg(sqlite3_db_handle(stmt)));
 	}
-
-	sqlite3_finalize(stmt);
+	
+	sqlite3_reset(stmt);
+	sqlite3_clear_bindings(stmt);
 	
 }
 
