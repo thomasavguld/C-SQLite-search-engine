@@ -43,7 +43,12 @@ int main() {
 	
 	
 	// Run ingestion
+	
+	sqlite3_exec(db, "BEGIN;", 0, 0 ,0);
+
 	list_files("./warehouse", db);
+
+	sqlite3_exec(db, "COMMIT;", 0, 0, 0);
 
 	// Select all data from documents  
 
