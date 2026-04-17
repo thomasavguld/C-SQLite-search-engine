@@ -5,10 +5,17 @@
 
 #define DB_PATH "./db/c_search.db"
 
-void list_files(const char *path, sqlite3 *db); 
+// I/O (file system)
 char *read_file(const char *filepath);
+void list_files(const char *path, sqlite3 *db);
+
+// Data base insertion
 void insert_document(sqlite3 *db, const char *filename, const char *content);
+
+// Reading from database
 int callback(void *data, int argc, char **argv, char **colNames);
+
+//Main function
 
 int main() {
 
@@ -22,9 +29,9 @@ int main() {
 	if (rc) {
 		printf("Cannot open database connection.\n");
 		return 1;
-	} /* else {
-		printf("database connection open.\n");
-	}*/
+	} else {
+		printf("Database connection open.\n");
+	}
 
 	// Create tables if they don't already exist
 
@@ -41,6 +48,8 @@ int main() {
 		sqlite3_free(errMsg);
 		sqlite3_close(db);
 		return 1;
+	} else {
+		printf("Database ready.\n");
 	}
 	
 	
@@ -101,7 +110,7 @@ void list_files(const char *path, sqlite3 *db) {
 		if (entry->d_name[0] == '.') continue;
 
 		char filepath[256];
-		sprintf(filepath, "%s/%s", path, entry->d_name);
+		snprintf(filepath, sizeof(filepath), "%s/%s", path, entry->d_name);
 
 		char *content = read_file(filepath);
 
@@ -114,25 +123,35 @@ void list_files(const char *path, sqlite3 *db) {
 
 	closedir(dir);
 
-	printf("Document insert OK.\n");
 }
 
 char *read_file(const char *filepath) {
 	FILE *file = fopen(filepath, "r");
+	if (!file) return NULL;
 
-	if (!file) {
-		printf("Cannot open file: %s\n", filepath);
+	fseek(file, SEEK_END);
+	long size = ftell(file);
+	rewind(file);
+	
+	if (size <=0) {
+		fclose(file);
 		return NULL;
 	}
 
-	fseek(file, 0, SEEK_END);
-	long size = ftell(file);
-	rewind(file);
+	char *buffer = malloc(size + 1);	
+	if (!buffer) {
+		fclose(file);
+		return NULL;
+	}
 
-	char *buffer = malloc(size + 1);
-	fread(buffer, 1, size, file);
+	size_t read = fread(buffer, 1, size, file);
+	if (read != size) {
+		free(buffer);
+		fclose(file);
+		return NULL;
+	}
+
 	buffer[size] = '\0';
-
 	fclose(file);
 	return buffer;
 }
@@ -150,8 +169,6 @@ void insert_document(sqlite3 *db, const char *filename, const char *content) {
 	if (rc != SQLITE_OK) {
 		printf("Prepare error: %s\n", sqlite3_errmsg(db));
 		return;
-	//} else {
-	//	printf("Document insert OK.\n");
 	}
 
 	int idx_filename = sqlite3_bind_parameter_index(stmt, ":filename");
