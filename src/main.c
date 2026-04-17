@@ -136,26 +136,39 @@ char *read_file(const char *filepath) {
 }
 
 void insert_document(sqlite3 *db, const char *filename, const char *content) {
-	char *errMsg = 0;
-	int rc;
+	
+	sqlite3_stmt *stmt;
 
-	char sql_insert[2048];
+	const char *sql =
+		"INSERT INTO documents(filename, content) "
+		"VALUES(:filename, :content);";
 
-	snprintf(sql_insert, sizeof(sql_insert),
-		"INSERT INTO documents(filename, content) VALUES('%s', '%s');",
-		filename, content);
-
-	rc = sqlite3_exec(db, sql_insert, 0, 0, &errMsg);
+	int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
 
 	if (rc != SQLITE_OK) {
-		printf("Insert error: %s\n", errMsg);
-		sqlite3_free(errMsg);
+		printf("Prepare error: %s\n", sqlite3_errmsg(db));
+		return;
+	//} else {
+	//	printf("Document insert OK.\n");
+	}
+
+	int idx_filename = sqlite3_bind_parameter_index(stmt, ":filename");
+	int idx_content = sqlite3_bind_parameter_index(stmt, ":content");
+
+	sqlite3_bind_text(stmt, idx_filename, filename, -1, SQLITE_TRANSIENT);	
+	sqlite3_bind_text(stmt, idx_content, content, -1, SQLITE_TRANSIENT);
+
+	rc = sqlite3_step(stmt);
+
+	if (rc != SQLITE_DONE) {
+		printf("Insert error: %s\n", sqlite3_errmsg(db));
 	} else {
 		printf("Document insert OK.\n");
 	}
 
-
+	sqlite3_finalize(stmt);
 }
+
 // Loop through and print selected data
 
 int callback(void *data, int argc, char **argv, char **colNames) {
