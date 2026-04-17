@@ -22,7 +22,9 @@ int main() {
 	if (rc) {
 		printf("Cannot open database connection.\n");
 		return 1;
-	}
+	} /* else {
+		printf("database connection open.\n");
+	}*/
 
 	// Create tables if they don't already exist
 
@@ -50,9 +52,9 @@ int main() {
 
 	sqlite3_exec(db, "COMMIT;", 0, 0, 0);
 
-	// Select all data from documents  
+	// Select data from documents  
 
-	const char *select_sql = "SELECT * FROM documents;"; 
+	const char *select_sql = "SELECT filename FROM documents;"; 
 
 	rc = sqlite3_exec(db, select_sql, callback, 0, &errMsg);
 
@@ -112,7 +114,7 @@ void list_files(const char *path, sqlite3 *db) {
 
 	closedir(dir);
 
-
+	printf("Document insert OK.\n");
 }
 
 char *read_file(const char *filepath) {
@@ -162,11 +164,10 @@ void insert_document(sqlite3 *db, const char *filename, const char *content) {
 
 	if (rc != SQLITE_DONE) {
 		printf("Insert error: %s\n", sqlite3_errmsg(db));
-	} else {
-		printf("Document insert OK.\n");
 	}
 
 	sqlite3_finalize(stmt);
+	
 }
 
 // Loop through and print selected data
