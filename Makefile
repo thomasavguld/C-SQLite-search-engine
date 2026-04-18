@@ -1,13 +1,23 @@
 CC = clang
-SRC = src/main.c
+
+PROJECT_ROOT := .
+
+SRC = src/main.c external/yyjson/src/yyjson.c
 OUT = build/search
-DBDIR = db
+
+CFLAGS = -O2 -Wall -Wextra \
+         -I$(PROJECT_ROOT)/external/yyjson/src \
+         -DDB_PATH=\"$(PROJECT_ROOT)/db/c_search.db\" \
+         -DWAREHOUSE_PATH=\"$(PROJECT_ROOT)/warehouse\"
+
+LDFLAGS = -lsqlite3
 
 all:
-	mkdir -p build
-	mkdir -p db
-	$(CC) $(SRC) -o $(OUT) -lsqlite3
+	mkdir -p build db
+	$(CC) $(SRC) $(CFLAGS) $(LDFLAGS) -o $(OUT)
+
+run: all
+	./$(OUT)
 
 clean:
-	rm -rf build/search
-	rm -rf db/c_search.db
+	rm -rf build/search db/c_search.db
