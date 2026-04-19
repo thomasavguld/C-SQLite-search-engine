@@ -142,6 +142,9 @@ void process_file(const char *filepath, void *userdata) {
 		yyjson_obj_iter iter;
 		yyjson_obj_iter_init(bib, &iter);
 		entry = yyjson_obj_iter_next(&iter);
+		if (!entry) {
+			printf("No entry found in %s\n", filepath);
+		}
 	}
 
 	const char *title = NULL;
@@ -156,7 +159,10 @@ void process_file(const char *filepath, void *userdata) {
 
 		yyjson_val *year_v = yyjson_obj_get(entry, "pub_year");
 		pub_year = year_v ? yyjson_get_int(year_v) : 0;
-	}
+	
+		if (!entry) {
+			printf("No entry found in %s\n", filepath);
+		}
 
 		insert_document(
 			ctx->stmt_main,
@@ -169,5 +175,5 @@ void process_file(const char *filepath, void *userdata) {
 
 	yyjson_doc_free(doc);
 	free(json);
-
+	}
 }
