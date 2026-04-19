@@ -3,16 +3,13 @@
 #include <string.h>
 #include <dirent.h>
 
-#include "db.h"
 #include "fs.h"
-#include "json.h"
 
 
 // List files
 
-void list_files(const char *path, sqlite3 *db, sqlite3_stmt *stmt_main, sqlite3_stmt *stmt_fts) { 
+void list_files(const char *path, file_callback cb, void *userdata) { 
 
-	(void)db; // <--- KEEP AN EYE ON THIS FOR LATER
 
 	struct dirent *entry;
 	DIR *dir = opendir(path);
@@ -34,29 +31,14 @@ void list_files(const char *path, sqlite3 *db, sqlite3_stmt *stmt_main, sqlite3_
 
 		snprintf(filepath, len, "%s/%s", path, entry->d_name);
 
-		char *json = read_file(filepath);
-		if (!json) {
-			free(filepath);
-			continue;
-		}
-
-
-		char *title = extract_title(json);
-		char *abstract = extract_abstract(json);
-
-		insert_document(stmt_main, title, abstract);
-		insert_document(stmt_fts, title, abstract);
+		cb(filepath, userdata);
 		
 		free(filepath);
-		free(json);
-		free(title);
-		free(abstract);
-
-		}
+	}
 
 	closedir(dir);
 
-	}
+}
 
 char *read_file(const char *filepath) {
 	FILE *file = fopen(filepath, "r");

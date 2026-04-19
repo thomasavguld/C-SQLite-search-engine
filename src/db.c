@@ -14,19 +14,28 @@ int exec_sql(sqlite3 *db, const char *sql) {
 	}
 
 
-void insert_document(sqlite3_stmt *stmt, const char *title, const char *abstract) {
+void insert_document(
+		sqlite3_stmt *stmt, 
+		const char *title, 
+		const char *abstract,
+		const char *doi,
+		const char *issn,
+		int pub_year
+	) {
 
-	sqlite3_bind_text(stmt, 1, title ? title : "", -1, SQLITE_TRANSIENT);	
-	sqlite3_bind_text(stmt, 2, abstract ? abstract : "", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_text(stmt, 1, title ? title : "", -1, SQLITE_TRANSIENT);	
+		sqlite3_bind_text(stmt, 2, abstract ? abstract : "", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_text(stmt, 3, doi ? doi : "", -1, SQLITE_TRANSIENT);	
+		sqlite3_bind_text(stmt, 4, issn ? issn : "", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_int(stmt, 5, pub_year);		
 
-	int rc_insert = sqlite3_step(stmt);
 
-	if (rc_insert != SQLITE_DONE) {
-		printf("Insert error: %s\n", sqlite3_errmsg(sqlite3_db_handle(stmt)));
-	}
+		if (sqlite3_step(stmt) != SQLITE_DONE) {
+			printf("Insert error: %s\n", sqlite3_errmsg(sqlite3_db_handle(stmt)));
+		}
 	
-	sqlite3_clear_bindings(stmt);
-	sqlite3_reset(stmt);
+		sqlite3_clear_bindings(stmt);
+		sqlite3_reset(stmt);
 	
 }
 

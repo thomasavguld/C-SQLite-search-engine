@@ -8,8 +8,8 @@ OBJ = $(SRC:.c=.o)
 OUT = build/search
 
 CFLAGS = -O2 -Wall -Wextra \
+	 -I$(PROJECT_ROOT)/include \
          -I$(PROJECT_ROOT)/external/yyjson/src \
-         -I$(PROJECT_ROOT)/include \
          -DDB_PATH=\"$(PROJECT_ROOT)/db/c_search.db\" \
          -DWAREHOUSE_PATH=\"$(PROJECT_ROOT)/warehouse\"
 
@@ -27,5 +27,5 @@ $(OUT): $(OBJ)
 run: all
 	./$(OUT)
 
-clean:
-	rm -rf build $(OBJ) db/c_search.db db/c_search.db-shm db/c_search.db-wal
+clean: 
+	rm -rf build src/*.o external/yyjson/src/*.o db/c_search.db*

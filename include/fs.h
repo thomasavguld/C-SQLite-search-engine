@@ -3,9 +3,10 @@
 
 #include <sqlite3.h>
 
+typedef void (*file_callback) (const char *filepath, void *userdata);
 
 char *read_file(const char *filepath);
-void list_files(const char *path, sqlite3 *db, sqlite3_stmt *stmt_main, sqlite3_stmt *stmt_fts); 
+void list_files(const char *path, file_callback cb, void *userdata); 
 
 #endif
 
