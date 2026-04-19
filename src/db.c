@@ -1,3 +1,5 @@
+#include <stdio.h>
+#include <sqlite3.h>
 
 int exec_sql(sqlite3 *db, const char *sql) {
 	char *errMsg = 0;

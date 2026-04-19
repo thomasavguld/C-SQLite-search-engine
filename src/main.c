@@ -9,8 +9,13 @@
 #include "json.h"
 
 // define db & warehouse paths
-const char *DB_PATH "./db/c_search.db"
-const char *WAREHOUSE_PATH "./warehouse"
+#ifndef DB_PATH
+#define DB_PATH "./db/c_search.db"
+#endif
+
+#ifndef WAREHOUSE_PATH
+#define WAREHOUSE_PATH "./warehouse"
+#endif
 
 
 //Main function

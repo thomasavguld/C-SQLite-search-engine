@@ -1,6 +1,12 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <dirent.h>
+
+#include "db.h"
 #include "fs.h"
 #include "json.h"
-#include "db.h"
+
 
 // List files
 
