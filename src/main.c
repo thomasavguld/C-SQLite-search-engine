@@ -47,39 +47,41 @@ int main() {
 		"CREATE TABLE IF NOT EXISTS documents ("
 		"id INTEGER PRIMARY KEY,"
 		"title TEXT,"
+		"author TEXT, "
 		"abstract TEXT, "
 		"doi TEXT, "
 		"issn TEXT, "
 		"pub_year INTEGER"
 		");";
 
-	const char *create_fts_sql =
+/*	const char *create_fts_sql =
 		"CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5("
-		"title,"
+		"title, "
+		"author, "
 		"abstract, "
 		"doi, "
 		"issn, "
-		"pub_year,"
+		"pub_year, "
 		"content='documents', "
 		"content_rowid='id' "
 		");";
-
+*/
 	if (exec_sql(db, create_sql) != SQLITE_OK) return 1;	
-	if (exec_sql(db, create_fts_sql) != SQLITE_OK) return 1;	
+//	if (exec_sql(db, create_fts_sql) != SQLITE_OK) return 1;	<---------------------------
 
 	// Run ingestion
 	const char *insert_sql =
-		"INSERT INTO documents(title, abstract, doi, issn, pub_year) "
-		"VALUES(?, ?, ?, ?, ?);";
+		"INSERT INTO documents(title, author, abstract, doi, issn, pub_year) "
+		"VALUES(?, ?, ?, ?, ?, ?);";
 
-	const char *insert_fts_sql =
-		"INSERT INTO documents(title, abstract, doi, issn, pub_year) "
-		"VALUES(?, ?, ?, ?, ?);";
-	
+/*	const char *insert_fts_sql =
+		"INSERT INTO documents_fts(title, author, abstract, doi, issn, pub_year) "
+		"VALUES(?, ?, ?, ?, ?, ?);";
+*/	
 	AppContext ctx;
 
 	sqlite3_prepare_v2(db, insert_sql, -1, &ctx.stmt_main, NULL);
-	sqlite3_prepare_v2(db, insert_fts_sql, -1, &ctx.stmt_fts, NULL);
+//	sqlite3_prepare_v2(db, insert_fts_sql, -1, &ctx.stmt_fts, NULL);
 
 	sqlite3_exec(db, "BEGIN;", 0, 0 ,0);
 
@@ -88,17 +90,19 @@ int main() {
 	sqlite3_exec(db, "COMMIT;", 0, 0, 0);
 
 	sqlite3_finalize(ctx.stmt_main);
-	sqlite3_finalize(ctx.stmt_fts);
+//	sqlite3_finalize(ctx.stmt_fts);  <---------------------------
 
 	// Select data from documents  
-	const char *select_sql = 
+	const char *select_sql = "SELECT * FROM documents;";
+
+		/* 
 		"SELECT title AS Title, "
 		"CASE "
 		"WHEN LENGTH(abstract) > 50 "
 		"THEN RTRIM(SUBSTR(abstract, 1, 180)) || '...' "
 		"ELSE abstract "
 		"END AS Preview "
-		"FROM documents;"; 
+		"FROM documents;"; */
 
 	char *errMsg = NULL;
 
@@ -134,13 +138,13 @@ void process_file(const char *filepath, void *userdata) {
 	yyjson_val *abstract_v = yyjson_obj_get(root, "abstract");
 	const char *abstract = yyjson_get_str(abstract_v);
 
-	yyjson_val *bib = yyjson_obj_get(root, "bib_entries");
+	yyjson_val *meta = yyjson_obj_get(root, "metadata");
 
 	yyjson_val *entry = NULL;
 
-	if(bib && yyjson_is_obj(bib)) {
+	if(meta && yyjson_is_obj(meta)) {
 		yyjson_obj_iter iter;
-		yyjson_obj_iter_init(bib, &iter);
+		yyjson_obj_iter_init(meta, &iter);
 		entry = yyjson_obj_iter_next(&iter);
 		if (!entry) {
 			printf("No entry found in %s\n", filepath);
@@ -148,6 +152,7 @@ void process_file(const char *filepath, void *userdata) {
 	}
 
 	const char *title = NULL;
+	const char *author = NULL;
 	const char *doi = NULL;	
 	const char *issn = NULL;	
 	int pub_year = 0;
@@ -159,14 +164,23 @@ void process_file(const char *filepath, void *userdata) {
 
 		yyjson_val *year_v = yyjson_obj_get(entry, "pub_year");
 		pub_year = year_v ? yyjson_get_int(year_v) : 0;
-	
+	/*
+		printf("title_v: %p\n", (void*)yyjson_obj_get(meta, "title"));
+		printf("doi_v: %p\n", (void*)yyjson_obj_get(meta, "doi"));
+		printf("year_: %p\n", (void*)yyjson_obj_get(meta, "pub_year"));
+	*/
 		if (!entry) {
 			printf("No entry found in %s\n", filepath);
 		}
 
+		printf("TITLE: '%s'\n", title ? title : "NULL");
+		printf("DOI : '%s'\n", doi ? doi : "NULL");
+		printf("YEAR: %d\n", pub_year);
+
 		insert_document(
 			ctx->stmt_main,
 			title ? title : "",
+			author,
 			abstract ? abstract : "",
 			doi ? doi : "",
 			issn ? issn : "",

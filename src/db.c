@@ -17,6 +17,7 @@ int exec_sql(sqlite3 *db, const char *sql) {
 void insert_document(
 		sqlite3_stmt *stmt, 
 		const char *title, 
+		const char *author, 
 		const char *abstract,
 		const char *doi,
 		const char *issn,
@@ -24,10 +25,11 @@ void insert_document(
 	) {
 
 		sqlite3_bind_text(stmt, 1, title ? title : "", -1, SQLITE_TRANSIENT);	
-		sqlite3_bind_text(stmt, 2, abstract ? abstract : "", -1, SQLITE_TRANSIENT);
-		sqlite3_bind_text(stmt, 3, doi ? doi : "", -1, SQLITE_TRANSIENT);	
-		sqlite3_bind_text(stmt, 4, issn ? issn : "", -1, SQLITE_TRANSIENT);
-		sqlite3_bind_int(stmt, 5, pub_year);		
+		sqlite3_bind_text(stmt, 2, author ? author : "", -1, SQLITE_TRANSIENT);	
+		sqlite3_bind_text(stmt, 3, abstract ? abstract : "", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_text(stmt, 4, doi ? doi : "", -1, SQLITE_TRANSIENT);	
+		sqlite3_bind_text(stmt, 5, issn ? issn : "", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_int(stmt, 6, pub_year);		
 
 
 		if (sqlite3_step(stmt) != SQLITE_DONE) {

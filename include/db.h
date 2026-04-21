@@ -12,6 +12,7 @@ int exec_sql(
 void insert_document(
 	sqlite3_stmt *stmt, 
 	const char *title, 
+	const char *author,
 	const char *abstract,
 	const char *doi,
 	const char *issn,
