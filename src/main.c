@@ -81,7 +81,7 @@ int main() {
 	AppContext ctx;
 
 	sqlite3_prepare_v2(db, insert_sql, -1, &ctx.stmt_main, NULL);
-//	sqlite3_prepare_v2(db, insert_fts_sql, -1, &ctx.stmt_fts, NULL);
+//	sqlite3_prepare_v2(db, insert_fts_sql, -1, &ctx.stmt_fts, NULL); <-------------------
 
 	sqlite3_exec(db, "BEGIN;", 0, 0 ,0);
 
@@ -139,8 +139,31 @@ void process_file(const char *filepath, void *userdata) {
 	const char *abstract = yyjson_get_str(abstract_v);
 
 	yyjson_val *meta = yyjson_obj_get(root, "metadata");
+	if (!meta) {
+		yyjson_doc_free(doc);
+		free(json);
+		return;
+	}
 
+	const char *title = yyjson_get_str(
+				yyjson_obj_get(meta, "title")
+			);
+	const char *author = "";
+	const char *doi = yyjson_get_str(
+				yyjson_obj_get(meta, "doi")
+			);
+	const char *issn = yyjson_get_str(
+				yyjson_obj_get(meta, "issn")
+			);
+	yyjson_val *year_v = yyjson_obj_get(meta, "pub_year");
+	int pub_year = year_v ? yyjson_get_int(year_v) : 0;
+	
+	/*
 	yyjson_val *entry = NULL;
+
+	char *dump = yyjson_val_write(meta, 0, NULL);
+	printf("META: %s\n", dump);
+	free(dump);
 
 	if(meta && yyjson_is_obj(meta)) {
 		yyjson_obj_iter iter;
@@ -164,15 +187,15 @@ void process_file(const char *filepath, void *userdata) {
 
 		yyjson_val *year_v = yyjson_obj_get(entry, "pub_year");
 		pub_year = year_v ? yyjson_get_int(year_v) : 0;
-	/*
+	
 		printf("title_v: %p\n", (void*)yyjson_obj_get(meta, "title"));
 		printf("doi_v: %p\n", (void*)yyjson_obj_get(meta, "doi"));
 		printf("year_: %p\n", (void*)yyjson_obj_get(meta, "pub_year"));
-	*/
+	
 		if (!entry) {
 			printf("No entry found in %s\n", filepath);
 		}
-
+*/
 		printf("TITLE: '%s'\n", title ? title : "NULL");
 		printf("DOI : '%s'\n", doi ? doi : "NULL");
 		printf("YEAR: %d\n", pub_year);
@@ -190,4 +213,4 @@ void process_file(const char *filepath, void *userdata) {
 	yyjson_doc_free(doc);
 	free(json);
 	}
-}
+//}
