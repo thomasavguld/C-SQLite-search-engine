@@ -9,7 +9,7 @@ int exec_sql(
 	const char *sql
 	);
 
-void insert_document(
+int db_exec_insert(
 	sqlite3_stmt *stmt, 
 	const char *title, 
 	const char *author,
