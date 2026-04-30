@@ -139,7 +139,7 @@ int main() {
 
 	//	sqlite3_finalize(ctx.stmt_fts);  <---------------------------
 
-/*	// Select data from documents  
+	// Select data from documents  
 	const char *select_sql = 
 		"SELECT title AS Title, "
 		"CASE "
@@ -157,7 +157,7 @@ int main() {
 	printf("Select error: %s\n", errMsg);
 		sqlite3_free(errMsg);
 	}
-*/
+
 
 	// Close database connection
 	sqlite3_close(db);
