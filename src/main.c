@@ -158,44 +158,6 @@ void process_file(const char *filepath, void *userdata) {
 	yyjson_val *year_v = yyjson_obj_get(meta, "pub_year");
 	int pub_year = year_v ? yyjson_get_int(year_v) : 0;
 	
-	/*
-	yyjson_val *entry = NULL;
-
-	char *dump = yyjson_val_write(meta, 0, NULL);
-	printf("META: %s\n", dump);
-	free(dump);
-
-	if(meta && yyjson_is_obj(meta)) {
-		yyjson_obj_iter iter;
-		yyjson_obj_iter_init(meta, &iter);
-		entry = yyjson_obj_iter_next(&iter);
-		if (!entry) {
-			printf("No entry found in %s\n", filepath);
-		}
-	}
-
-	const char *title = NULL;
-	const char *author = NULL;
-	const char *doi = NULL;	
-	const char *issn = NULL;	
-	int pub_year = 0;
-
-	if (entry) {
-		title = yyjson_get_str(yyjson_obj_get(entry, "title"));
-		doi = yyjson_get_str(yyjson_obj_get(entry, "doi"));
-		issn = yyjson_get_str(yyjson_obj_get(entry, "issn"));
-
-		yyjson_val *year_v = yyjson_obj_get(entry, "pub_year");
-		pub_year = year_v ? yyjson_get_int(year_v) : 0;
-	
-		printf("title_v: %p\n", (void*)yyjson_obj_get(meta, "title"));
-		printf("doi_v: %p\n", (void*)yyjson_obj_get(meta, "doi"));
-		printf("year_: %p\n", (void*)yyjson_obj_get(meta, "pub_year"));
-	
-		if (!entry) {
-			printf("No entry found in %s\n", filepath);
-		}
-*/
 		printf("TITLE: '%s'\n", title ? title : "NULL");
 		printf("DOI : '%s'\n", doi ? doi : "NULL");
 		printf("YEAR: %d\n", pub_year);
