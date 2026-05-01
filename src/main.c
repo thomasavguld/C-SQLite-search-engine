@@ -17,24 +17,6 @@
 #define WAREHOUSE_PATH "./warehouse"
 #endif
 
-
-typedef struct {
-	sqlite3_stmt *stmt_main;
-	sqlite3_stmt *stmt_fts;
-	
-	int files_total;
-	
-	int files_processed;
-	int insert_ok;
-
-	int insert_errors;
-	int read_errors;
-	int parse_errors;
-
-	struct timespec start_time;
-	struct timespec end_time;
-} AppContext;
-
 void process_file(const char *filepath, void *userdata);
 
 //Main function
@@ -49,62 +31,12 @@ int main() {
 		return 1;
 	}
 
-	// SQLite PRAGMA settings for bulk ingestion
-	sqlite3_exec(db, "PRAGMA journal_mode=WAL;", 0, 0, 0);
-	sqlite3_exec(db, "PRAGMA synchronous=OFF;", 0, 0, 0);
-	sqlite3_exec(db, "PRAGMA cache_size=100000 ;", 0, 0, 0);
-
-	// Create tables if they don't already exist
-
-	const char *documents_sql =
-		"CREATE TABLE IF NOT EXISTS documents ("
-		"id INTEGER PRIMARY KEY,"
-		"title TEXT UNIQUE,"
-		"abstract TEXT, "
-		"doi TEXT, "
-		"issn TEXT, "
-		"pub_year INTEGER"
-		");";
-
-	const char *authors_sql =
-		"CREATE TABLE IF NOT EXISTS authors ("
-		"id INTEGER PRIMARY KEY,"
-		"first_name TEXT,"
-		"last_name TEXT, "
-		"initial TEXT "
-		");";
-
-	const char *get_author_id_sql =
-		"SELECT id FROM authors "
-		"first=? AND last=? AND initial=?;";
-
-
-	const char *documents_x_authors_sql =
-		"CREATE TABLE IF NOT EXISTS documents_x_authors ("
-		"document_id INTEGER,"
-		"author_id INTEGER,"
-		"PRIMARY KEY (document_id, author_id)"
-		");";
-
-	if (exec_sql(db, documents_sql, authors_sql, documents_x_authors_sql) != SQLITE_OK) return 1;	
-
-	// Run ingestion
-	const char *insert_documents_sql =
-		"INSERT INTO documents(title, abstract, doi, issn, pub_year) "
-		"VALUES(?, ?, ?, ?, ?,);";
-
-	const char *insert_authors_sql =
-		"INSERT OR IGNORE INTO authors(first, last, initial) "
-		"VALUES(?, ?, ?);";
-
-	const char *insert_documents_x_authors_sql =
-		"INSERT INTO documents_x_authors(document_id, author_id, author_order) "
-		"VALUES(?, ?, ?);";
-
-
 	AppContext ctx = {0};
 
-	sqlite3_prepare_v2(db, insert_sql, -1, &ctx.stmt_main, NULL);
+	ctx.db = db;
+
+	db_init(db);
+	db_prepare(db, &ctx);
 
 	sqlite3_exec(db, "BEGIN;", 0, 0 ,0);
 	
@@ -143,7 +75,10 @@ int main() {
 
 	}
 	
-	sqlite3_finalize(ctx.stmt_main);
+	sqlite3_finalize(ctx.stmt_documents);
+	sqlite3_finalize(ctx.stmt_authors);
+	sqlite3_finalize(ctx.stmt_author_get);
+	sqlite3_finalize(ctx.stmt_document_x_author);
 
 	//	sqlite3_finalize(ctx.stmt_fts);  <---------------------------
 
@@ -211,7 +146,6 @@ void process_file(const char *filepath, void *userdata) {
 	const char *title = yyjson_get_str(
 				yyjson_obj_get(meta, "title")
 			);
-	const char *author = "";
 	const char *doi = yyjson_get_str(
 				yyjson_obj_get(meta, "doi")
 			);
@@ -221,23 +155,81 @@ void process_file(const char *filepath, void *userdata) {
 	yyjson_val *year_v = yyjson_obj_get(meta, "pub_year");
 	int pub_year = year_v ? yyjson_get_int(year_v) : 0;
 
-	int rc = db_exec_insert(
-		ctx->stmt_main,
-		title ? title : "",
-		author,
-		abstract ? abstract : "",
-		doi ? doi : "",
-		issn ? issn : "",
+// INSERT DOCUMENTS
+
+	int document_id = db_insert_document(
+		ctx->db,
+		ctx->stmt_documents,
+		title,
+		abstract,
+		doi,
+		issn,
 		pub_year
 	);
-	
-	if (rc == SQLITE_OK) {
-		ctx->insert_ok++;
-	} else {
+
+	if (document_id < 0) {
 		ctx->insert_errors++;
+		yyjson_doc_free(doc);
+		free(json);
+		return;
+	}
+
+	ctx->insert_ok++;
+
+// AUTHORS
+
+	yyjson_val *authors = yyjson_obj_get(meta, "authors");
+
+	if (authors && yyjson_is_arr(authors)) {
+		size_t n = yyjson_arr_size(authors);
+
+		for (size_t i = 0; i < n; i++) {
+			
+			yyjson_val *a = yyjson_arr_get(authors, i);
+
+			const char *first_name =
+				yyjson_get_str(yyjson_obj_get(a, "first"));
+
+			const char *last_name =
+				yyjson_get_str(yyjson_obj_get(a, "last"));
+
+			const char *initial =
+				yyjson_get_str(yyjson_obj_get(a, "initial"));
+		
+
+			if(!first_name) first_name = "";
+			if(!last_name) last_name = "";
+			if(!initial) initial = "";
+
+			db_insert_author(
+				ctx->stmt_authors,
+				first_name,
+				last_name,
+				initial
+			);
+
+			int author_id = db_get_author_id(
+				ctx->stmt_author_get,
+				first_name,
+				last_name,
+				initial
+			);
+
+			if (author_id < 0) {
+				ctx->insert_errors++;
+				continue;
+			}
+
+			db_document_x_author(
+				ctx->stmt_document_x_author,
+				document_id,
+				author_id,
+				(int) i
+			);
+		}
+	
 	}
 
 	yyjson_doc_free(doc);
 	free(json);
-
 }
