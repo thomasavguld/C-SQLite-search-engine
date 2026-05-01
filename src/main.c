@@ -127,7 +127,7 @@ int main() {
 	printf("Read errors	: %d\n", ctx.read_errors);
 	
 	printf("Inserts OK	: %d\n", ctx.insert_ok);
-	printf("Insert errors	: %d\n", ctx.insert_errors);
+	printf("Insert errors	: %d\n\n", ctx.insert_errors);
 	
 	printf("Throughput:\n");
 	printf("Files/sec	: %.2f\n", files_per_sec);
@@ -139,7 +139,7 @@ int main() {
 
 	//	sqlite3_finalize(ctx.stmt_fts);  <---------------------------
 
-	// Select data from documents  
+/*	// Select data from documents  
 	const char *select_sql = 
 		"SELECT title AS Title, "
 		"CASE "
@@ -157,7 +157,7 @@ int main() {
 	printf("Select error: %s\n", errMsg);
 		sqlite3_free(errMsg);
 	}
-
+*/
 
 	// Close database connection
 	sqlite3_close(db);
@@ -184,6 +184,9 @@ void process_file(const char *filepath, void *userdata) {
 	}
 
 	ctx->files_processed++;
+
+	printf("processing: %s\n", filepath);
+
 	
 	yyjson_val *root = yyjson_doc_get_root(doc);
 
@@ -225,6 +228,7 @@ void process_file(const char *filepath, void *userdata) {
 	} else {
 		ctx->insert_errors++;
 	}
+	
 
 	yyjson_doc_free(doc);
 	free(json);
