@@ -56,50 +56,58 @@ int main() {
 
 	// Create tables if they don't already exist
 
-	const char *create_sql =
+	const char *documents_sql =
 		"CREATE TABLE IF NOT EXISTS documents ("
 		"id INTEGER PRIMARY KEY,"
-		"title TEXT,"
-		"author TEXT, "
+		"title TEXT UNIQUE,"
 		"abstract TEXT, "
 		"doi TEXT, "
 		"issn TEXT, "
 		"pub_year INTEGER"
 		");";
 
-/*	const char *create_fts_sql =
-		"CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5("
-		"title, "
-		"author, "
-		"abstract, "
-		"doi, "
-		"issn, "
-		"pub_year, "
-		"content='documents', "
-		"content_rowid='id' "
+	const char *authors_sql =
+		"CREATE TABLE IF NOT EXISTS authors ("
+		"id INTEGER PRIMARY KEY,"
+		"first_name TEXT,"
+		"last_name TEXT, "
+		"initial TEXT "
 		");";
-*/
-	if (exec_sql(db, create_sql) != SQLITE_OK) return 1;	
-//	if (exec_sql(db, create_fts_sql) != SQLITE_OK) return 1;	<---------------------------
+
+	const char *get_author_id_sql =
+		"SELECT id FROM authors "
+		"first=? AND last=? AND initial=?;";
+
+
+	const char *documents_x_authors_sql =
+		"CREATE TABLE IF NOT EXISTS documents_x_authors ("
+		"document_id INTEGER,"
+		"author_id INTEGER,"
+		"PRIMARY KEY (document_id, author_id)"
+		");";
+
+	if (exec_sql(db, documents_sql, authors_sql, documents_x_authors_sql) != SQLITE_OK) return 1;	
 
 	// Run ingestion
-	const char *insert_sql =
-		"INSERT INTO documents(title, author, abstract, doi, issn, pub_year) "
-		"VALUES(?, ?, ?, ?, ?, ?);";
+	const char *insert_documents_sql =
+		"INSERT INTO documents(title, abstract, doi, issn, pub_year) "
+		"VALUES(?, ?, ?, ?, ?,);";
 
-/*	const char *insert_fts_sql =
-		"INSERT INTO documents_fts(title, author, abstract, doi, issn, pub_year) "
-		"VALUES(?, ?, ?, ?, ?, ?);";
-*/	
+	const char *insert_authors_sql =
+		"INSERT OR IGNORE INTO authors(first, last, initial) "
+		"VALUES(?, ?, ?);";
+
+	const char *insert_documents_x_authors_sql =
+		"INSERT INTO documents_x_authors(document_id, author_id, author_order) "
+		"VALUES(?, ?, ?);";
+
+
 	AppContext ctx = {0};
 
 	sqlite3_prepare_v2(db, insert_sql, -1, &ctx.stmt_main, NULL);
-//	sqlite3_prepare_v2(db, insert_fts_sql, -1, &ctx.stmt_fts, NULL); <-------------------
 
 	sqlite3_exec(db, "BEGIN;", 0, 0 ,0);
 	
-//	ctx->files_total = count_files(WAREHOUSE_PATH); <---------------------
-
 	clock_gettime(CLOCK_MONOTONIC, &ctx.start_time);
 
 	list_files(WAREHOUSE_PATH, process_file, &ctx);

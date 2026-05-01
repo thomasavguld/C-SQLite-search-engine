@@ -1,7 +1,23 @@
 #include <stdio.h>
 #include <sqlite3.h>
 
-int exec_sql(sqlite3 *db, const char *sql) {
+int documents_sql(sqlite3 *db, const char *sql) {
+	char *errMsg = NULL;
+	int rc = sqlite3_exec(db, sql, NULL, NULL, &errMsg);
+
+	sqlite3_free(errMsg);
+	return rc;
+}
+
+int authors_sql(sqlite3 *db, const char *sql) {
+	char *errMsg = NULL;
+	int rc = sqlite3_exec(db, sql, NULL, NULL, &errMsg);
+
+	sqlite3_free(errMsg);
+	return rc;
+}
+
+int documents_x_authors_sql(sqlite3 *db, const char *sql) {
 	char *errMsg = NULL;
 	int rc = sqlite3_exec(db, sql, NULL, NULL, &errMsg);
 
