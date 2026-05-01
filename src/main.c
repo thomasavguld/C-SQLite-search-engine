@@ -185,7 +185,7 @@ void process_file(const char *filepath, void *userdata) {
 
 	ctx->files_processed++;
 
-	printf("processing: %s\n", filepath);
+//	printf("processing: %s\n", filepath);
 
 	
 	yyjson_val *root = yyjson_doc_get_root(doc);
