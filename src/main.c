@@ -223,60 +223,13 @@ void process_file(const char *filepath, void *userdata) {
 		pub_year
 	);
 	
-<<<<<<< HEAD
-		printf("TITLE: '%s'\n", title ? title : "NULL");
-		printf("DOI : '%s'\n", doi ? doi : "NULL");
-		printf("YEAR: %d\n", pub_year);
-
-		insert_document(
-			ctx->stmt_main,
-			title ? title : "",
-			author,
-			abstract ? abstract : "",
-			doi ? doi : "",
-			issn ? issn : "",
-			pub_year
-		);
-=======
 	if (rc == SQLITE_OK) {
 		ctx->insert_ok++;
 	} else {
 		ctx->insert_errors++;
 	}
-	
->>>>>>> log_and_counters
 
 	yyjson_doc_free(doc);
 	free(json);
-
-/*	if (ctx->files_processed % 100 == 0) {
-		struct timespec now;
-		clock_gettime(CLOCK_MONOTONIC, &now);
-
-		double elapsed = timespec_diff_sec(ctx->start_time, now);
-
-		double rate = (elapsed > 0);
-			? ctx->files_processed / elapsed
-			: 0;
-		
-		double eta = (rate > 0)
-			? (ctx->files_total - ctx->files_processed) / rate
-			: 0;
-
-		double percent = 110.0 * ctx->files_processed / ctx->files_total;
-
-		printf("\rProcessed: %d / %d (%.1f%%) | %.1f files/s | ETA: %.1fs",
-			ctx->files_processed,
-			ctx->files_total,
-			percent,
-			rate,
-			eta
-		      );
-
-	fflush(stdout);
-
-	}
-
-	*/
 
 }
