@@ -2,19 +2,14 @@
 #include <sqlite3.h>
 
 int exec_sql(sqlite3 *db, const char *sql) {
-	char *errMsg = 0;
-	int rc_exec = sqlite3_exec(db, sql, 0, 0, &errMsg);
+	char *errMsg = NULL;
+	int rc = sqlite3_exec(db, sql, NULL, NULL, &errMsg);
 
-		if (rc_exec != SQLITE_OK) {
-			printf("SQL error: %s\n", errMsg);
-			sqlite3_free(errMsg);
-		}
+	sqlite3_free(errMsg);
+	return rc;
+}
 
-		return rc_exec;
-	}
-
-
-void insert_document(
+int db_exec_insert(
 		sqlite3_stmt *stmt, 
 		const char *title, 
 		const char *author, 
@@ -23,23 +18,62 @@ void insert_document(
 		const char *issn,
 		int pub_year
 	) {
+		int rc = SQLITE_OK;
 
+		rc = sqlite3_reset(stmt);
+		if (rc != SQLITE_OK) return rc;
+
+		rc = sqlite3_clear_bindings(stmt);
+		if (rc != SQLITE_OK) return rc;
+		
 		sqlite3_bind_text(stmt, 1, title ? title : "", -1, SQLITE_TRANSIENT);	
+		if (rc != SQLITE_OK) return rc;
+		
 		sqlite3_bind_text(stmt, 2, author ? author : "", -1, SQLITE_TRANSIENT);	
+		if (rc != SQLITE_OK) return rc;
+		
 		sqlite3_bind_text(stmt, 3, abstract ? abstract : "", -1, SQLITE_TRANSIENT);
+		if (rc != SQLITE_OK) return rc;
+		
 		sqlite3_bind_text(stmt, 4, doi ? doi : "", -1, SQLITE_TRANSIENT);	
+		if (rc != SQLITE_OK) return rc;
+		
 		sqlite3_bind_text(stmt, 5, issn ? issn : "", -1, SQLITE_TRANSIENT);
-		sqlite3_bind_int(stmt, 6, pub_year);		
-
-
-		if (sqlite3_step(stmt) != SQLITE_DONE) {
-			printf("Insert error: %s\n", sqlite3_errmsg(sqlite3_db_handle(stmt)));
+		if (rc != SQLITE_OK) return rc;
+		
+		sqlite3_bind_int(stmt, 6, pub_year);
+		if (rc != SQLITE_OK) return rc;
+		
+		rc =sqlite3_step(stmt);
+		if (rc != SQLITE_DONE) {
+			sqlite3_reset(stmt);
+			return rc;
 		}
-	
-		sqlite3_clear_bindings(stmt);
-		sqlite3_reset(stmt);
-	
+
+		return sqlite3_reset(stmt);
 }
+
+int insert_document(
+		sqlite3_stmt *stmt, 
+		const char *title, 
+		const char *author, 
+		const char *abstract,
+		const char *doi,
+		const char *issn,
+		int pub_year
+	) {
+		return db_exec_insert(
+			stmt,
+			title,
+			author,
+			abstract,
+			doi,
+			issn,
+			pub_year
+		);
+	}
+
+
 
 
 // Loop through and print selected data

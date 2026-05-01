@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
+#include <limits.h>
 
 #include "fs.h"
 
@@ -10,30 +11,27 @@
 
 void list_files(const char *path, file_callback cb, void *userdata) { 
 
-
-	struct dirent *entry;
 	DIR *dir = opendir(path);
-
 	if (!dir) {
 		perror("Opendir failed.\n");
 		printf("Dir: %s\n", path);
 		return;
 	}
 
-	while ((entry = readdir(dir)) != NULL) {
+	struct dirent *entry;
 
+	while ((entry = readdir(dir)) != NULL) {
+		
 		if (entry->d_name[0] == '.') continue;
 		
-		size_t len = strlen(path) + strlen(entry->d_name) + 2;
+		char fullpath[PATH_MAX];
+		snprintf(fullpath, sizeof(fullpath), "%s/%s", path, entry->d_name);
 
-		char *filepath = malloc(len);
-		if (!filepath) return;
+		const char *ext = strrchr(entry->d_name, '.');
+		if (!ext || strcmp(ext, ".json") !=0)
+			continue;
 
-		snprintf(filepath, len, "%s/%s", path, entry->d_name);
-
-		cb(filepath, userdata);
-		
-		free(filepath);
+		cb(fullpath, userdata);
 	}
 
 	closedir(dir);

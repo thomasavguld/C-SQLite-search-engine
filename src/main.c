@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sqlite3.h>
+#include <time.h>
 
 #include "yyjson.h"
 #include "db.h"
@@ -20,6 +21,18 @@
 typedef struct {
 	sqlite3_stmt *stmt_main;
 	sqlite3_stmt *stmt_fts;
+	
+	int files_total;
+	
+	int files_processed;
+	int insert_ok;
+
+	int insert_errors;
+	int read_errors;
+	int parse_errors;
+
+	struct timespec start_time;
+	struct timespec end_time;
 } AppContext;
 
 void process_file(const char *filepath, void *userdata);
@@ -78,31 +91,63 @@ int main() {
 		"INSERT INTO documents_fts(title, author, abstract, doi, issn, pub_year) "
 		"VALUES(?, ?, ?, ?, ?, ?);";
 */	
-	AppContext ctx;
+	AppContext ctx = {0};
 
 	sqlite3_prepare_v2(db, insert_sql, -1, &ctx.stmt_main, NULL);
 //	sqlite3_prepare_v2(db, insert_fts_sql, -1, &ctx.stmt_fts, NULL); <-------------------
 
 	sqlite3_exec(db, "BEGIN;", 0, 0 ,0);
+	
+//	ctx->files_total = count_files(WAREHOUSE_PATH); <---------------------
+
+	clock_gettime(CLOCK_MONOTONIC, &ctx.start_time);
 
 	list_files(WAREHOUSE_PATH, process_file, &ctx);
 
+	clock_gettime(CLOCK_MONOTONIC, &ctx.end_time);
+
 	sqlite3_exec(db, "COMMIT;", 0, 0, 0);
 
+	double elapsed_sec =
+		(ctx.end_time.tv_sec - ctx.start_time.tv_sec) +
+		(ctx.end_time.tv_nsec - ctx.start_time.tv_nsec) / 1e9;
+
+	double files_per_sec = 0.0;
+	double inserts_per_sec = 0.0;
+
+	if (elapsed_sec >0.0) {
+		files_per_sec = ctx.files_processed / elapsed_sec;
+		inserts_per_sec = ctx.insert_ok / elapsed_sec;
+
+	printf("\n --- IMPORT REPORT --- \n");
+	printf("Time elapsed	: %.3f s\n", elapsed_sec);
+	
+	printf("Files processed	: %d\n", ctx.files_processed);
+	printf("Parse errors	: %d\n", ctx.parse_errors);
+	printf("Read errors	: %d\n", ctx.read_errors);
+	
+	printf("Inserts OK	: %d\n", ctx.insert_ok);
+	printf("Insert errors	: %d\n\n", ctx.insert_errors);
+	
+	printf("Throughput:\n");
+	printf("Files/sec	: %.2f\n", files_per_sec);
+	printf("Inserts/sec	: %.2f\n", inserts_per_sec);
+
+	}
+	
 	sqlite3_finalize(ctx.stmt_main);
-//	sqlite3_finalize(ctx.stmt_fts);  <---------------------------
 
-	// Select data from documents  
-	const char *select_sql = "SELECT * FROM documents;";
+	//	sqlite3_finalize(ctx.stmt_fts);  <---------------------------
 
-		/* 
+/*	// Select data from documents  
+	const char *select_sql = 
 		"SELECT title AS Title, "
 		"CASE "
 		"WHEN LENGTH(abstract) > 50 "
 		"THEN RTRIM(SUBSTR(abstract, 1, 180)) || '...' "
 		"ELSE abstract "
 		"END AS Preview "
-		"FROM documents;"; */
+		"FROM documents;";
 
 	char *errMsg = NULL;
 
@@ -112,6 +157,7 @@ int main() {
 	printf("Select error: %s\n", errMsg);
 		sqlite3_free(errMsg);
 	}
+*/
 
 	// Close database connection
 	sqlite3_close(db);
@@ -125,14 +171,23 @@ void process_file(const char *filepath, void *userdata) {
 	AppContext *ctx = (AppContext *)userdata;
 
 	char *json = read_file(filepath);
-	if (!json) return;
+	if (!json) {
+		ctx->read_errors++;
+		return;
+	}	
 
 	yyjson_doc *doc = yyjson_read(json, strlen(json), 0);
 	if (!doc) {
+		ctx->parse_errors++;
 		free(json);
 		return;
 	}
 
+	ctx->files_processed++;
+
+//	printf("processing: %s\n", filepath);
+
+	
 	yyjson_val *root = yyjson_doc_get_root(doc);
 
 	yyjson_val *abstract_v = yyjson_obj_get(root, "abstract");
@@ -157,7 +212,18 @@ void process_file(const char *filepath, void *userdata) {
 			);
 	yyjson_val *year_v = yyjson_obj_get(meta, "pub_year");
 	int pub_year = year_v ? yyjson_get_int(year_v) : 0;
+
+	int rc = db_exec_insert(
+		ctx->stmt_main,
+		title ? title : "",
+		author,
+		abstract ? abstract : "",
+		doi ? doi : "",
+		issn ? issn : "",
+		pub_year
+	);
 	
+<<<<<<< HEAD
 		printf("TITLE: '%s'\n", title ? title : "NULL");
 		printf("DOI : '%s'\n", doi ? doi : "NULL");
 		printf("YEAR: %d\n", pub_year);
@@ -171,8 +237,46 @@ void process_file(const char *filepath, void *userdata) {
 			issn ? issn : "",
 			pub_year
 		);
+=======
+	if (rc == SQLITE_OK) {
+		ctx->insert_ok++;
+	} else {
+		ctx->insert_errors++;
+	}
+	
+>>>>>>> log_and_counters
 
 	yyjson_doc_free(doc);
 	free(json);
+
+/*	if (ctx->files_processed % 100 == 0) {
+		struct timespec now;
+		clock_gettime(CLOCK_MONOTONIC, &now);
+
+		double elapsed = timespec_diff_sec(ctx->start_time, now);
+
+		double rate = (elapsed > 0);
+			? ctx->files_processed / elapsed
+			: 0;
+		
+		double eta = (rate > 0)
+			? (ctx->files_total - ctx->files_processed) / rate
+			: 0;
+
+		double percent = 110.0 * ctx->files_processed / ctx->files_total;
+
+		printf("\rProcessed: %d / %d (%.1f%%) | %.1f files/s | ETA: %.1fs",
+			ctx->files_processed,
+			ctx->files_total,
+			percent,
+			rate,
+			eta
+		      );
+
+	fflush(stdout);
+
 	}
-//}
+
+	*/
+
+}
