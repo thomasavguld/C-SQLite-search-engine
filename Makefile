@@ -2,7 +2,7 @@ CC = clang
 
 PROJECT_ROOT := .
 
-SRC = src/main.c src/db.c src/fs.c src/json.c external/yyjson/src/yyjson.c
+SRC = src/main.c src/db.c src/fs.c src/json.c src/author_cache.c external/yyjson/src/yyjson.c
 OBJ = $(SRC:.c=.o)
 
 OUT = build/search

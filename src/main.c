@@ -1,5 +1,7 @@
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sqlite3.h>
 #include <time.h>
 
@@ -17,7 +19,10 @@
 #define WAREHOUSE_PATH "./warehouse"
 #endif
 
-void process_file(const char *filepath, void *userdata);
+void process_file(
+	const char *filepath, 
+	void *userdata
+	);
 
 //Main function
 int main() {
@@ -32,6 +37,11 @@ int main() {
 	}
 
 	AppContext ctx = {0};
+
+	author_cache_init(&ctx.author_cache);
+
+printf("[CTX MAIN] author_cache addr=%p\n",
+		(void*)&ctx.author_cache);
 
 	ctx.db = db;
 
@@ -75,8 +85,8 @@ int main() {
 
 	}
 	
-	sqlite3_finalize(ctx.stmt_documents);
-	sqlite3_finalize(ctx.stmt_authors);
+	sqlite3_finalize(ctx.stmt_document);
+	sqlite3_finalize(ctx.stmt_author);
 	sqlite3_finalize(ctx.stmt_author_get);
 	sqlite3_finalize(ctx.stmt_document_x_author);
 
@@ -132,7 +142,7 @@ void process_file(const char *filepath, void *userdata) {
 
 //	printf("processing: %s\n", filepath);
 
-	if (ctx->files_processed % 50 == 0) {
+	if (ctx->files_processed % 1000 == 0) {
 		printf("checkpoint %d\n", ctx->files_processed);
 	}
 
@@ -164,7 +174,7 @@ void process_file(const char *filepath, void *userdata) {
 
 	int document_id = db_insert_document(
 		ctx->db,
-		ctx->stmt_documents,
+		ctx->stmt_document,
 		title,
 		abstract,
 		doi,
@@ -188,11 +198,14 @@ void process_file(const char *filepath, void *userdata) {
 	if (authors && yyjson_is_arr(authors)) {
 		size_t n = yyjson_arr_size(authors);
 
-		printf("[AUTH] n=%zu file=%s\n", n, filepath);
+//		printf("[AUTH] n=%zu file=%s\n", n, filepath);
+		
+		static int hit = 0;
+		static int miss = 0;
 
 		for (size_t i = 0; i < n; i++) {
 			
-			printf("[AUTH_LOOKUP] doc=%d i=%zu\n", document_id, i);
+//			printf("[AUTH_LOOKUP] doc=%d i=%zu\n", document_id, i);
 
 			yyjson_val *a = yyjson_arr_get(authors, i);
 
@@ -205,34 +218,46 @@ void process_file(const char *filepath, void *userdata) {
 			const char *initial =
 				yyjson_get_str(yyjson_obj_get(a, "initial"));
 		
-
 			if(!first_name) first_name = "";
 			if(!last_name) last_name = "";
 			if(!initial) initial = "";
 
-			db_insert_author(
-				ctx->db,
-				ctx->stmt_authors,
+			int author_id = author_cache_get(
+				&ctx->author_cache,
 				first_name,
 				last_name,
 				initial
-			);
+				);
 
-			int author_id = db_get_author_id(
-				ctx->stmt_author_get,
-				first_name,
-				last_name,
-				initial
-			);
+			printf("[CTX FILE] author_cache addr=%p\n",
+					(void*)&ctx->author_cache);
 
-			if (author_id < 0) {
-				ctx->insert_errors++;
-				continue;
+				if (author_id >= 0) {
+					ctx->hit++;
+				} else {
+					ctx->miss++;
+				
+				db_insert_author(
+					ctx->db,
+					ctx->stmt_author,
+					first_name,
+					last_name,
+					initial
+					);
+
+			author_id = sqlite3_last_insert_rowid(ctx->db);
+
+			author_cache_put(
+					&ctx->author_cache,
+					first_name,
+					last_name,
+					initial,
+					author_id
+					);
+
 			}
 				
-			int rc;
-
-			rc = db_document_x_author(
+			int rc = db_document_x_author(
 				ctx->stmt_document_x_author,
 				document_id,
 				author_id,
@@ -243,9 +268,8 @@ void process_file(const char *filepath, void *userdata) {
 				ctx->insert_errors++;
 			}
 			
-			if (ctx->files_processed % 1000 == 0) {
-			printf("LINK: doc=%d author=%d order=%zu\n",
-					document_id, author_id, i);
+			if ((hit + miss) % 1000 == 0) {
+			printf("hits: %d misses: %d\n", ctx->hit, ctx->miss);
 			}
 			
 		}

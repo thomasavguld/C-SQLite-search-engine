@@ -4,6 +4,8 @@
 #include <app_context.h>
 #include <db.h>
 
+#include <author_cache.h>
+
 int documents_sql(sqlite3 *db, const char *sql) {
 	char *errMsg = NULL;
 	int rc = sqlite3_exec(db, sql, NULL, NULL, &errMsg);
@@ -41,7 +43,7 @@ int exec_sql(sqlite3 *db, const char *sql) {
 }
 
 int db_init(sqlite3 *db) {
-
+	
 	sqlite3_busy_timeout(db, 5000);
 
 	// SQLite PRAGMA settings for bulk ingestion
@@ -103,7 +105,7 @@ int db_prepare(sqlite3 *db, struct AppContext *ctx) {
 		"issn,"
 		"pub_year)"
 		"VALUES(?, ?, ?, ?, ?);",
-		-1, &ctx->stmt_documents, NULL);
+		-1, &ctx->stmt_document, NULL);
 			
 	sqlite3_prepare_v2(db,
 		"INSERT OR IGNORE INTO authors("
@@ -111,16 +113,16 @@ int db_prepare(sqlite3 *db, struct AppContext *ctx) {
 		"last_name,"
 		"initial)"
 		"VALUES(?, ?, ?);",
-		-1, &ctx->stmt_authors, NULL);
+		-1, &ctx->stmt_author, NULL);
 	
-	sqlite3_prepare_v2(db,
+/*	sqlite3_prepare_v2(db,
 		"SELECT id "
 		"FROM authors "
 		"WHERE first_name=? "
 		"AND last_name=? "
 		"AND initial=?;",
 		-1, &ctx->stmt_author_get, NULL);
-	
+*/	
 	sqlite3_prepare_v2(db,
 		"INSERT OR IGNORE INTO documents_x_authors("
 		"document_id,"
@@ -221,7 +223,7 @@ int db_insert_author(
 		return sqlite3_last_insert_rowid(db);
 
 	}
-
+/*
 int db_get_author_id(sqlite3_stmt *stmt,
 		const char *first_name,
 		const char *last_name,
@@ -250,7 +252,7 @@ int db_get_author_id(sqlite3_stmt *stmt,
 	   	return -1;
 
 	}
-
+*/
 int db_document_x_author(
 		sqlite3_stmt *stmt,
 		int document_id,
