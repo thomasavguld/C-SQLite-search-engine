@@ -103,15 +103,24 @@ int db_prepare(sqlite3 *db, struct AppContext *ctx) {
 		"issn,"
 		"pub_year)"
 		"VALUES(?, ?, ?, ?, ?);",
-		-1, &ctx->stmt_documents, NULL);
+		-1, 
+		&ctx->stmt_document, 
+		NULL
+	);
 			
 	sqlite3_prepare_v2(db,
-		"INSERT OR IGNORE INTO authors("
+		"INSERT INTO authors("
 		"first_name,"
 		"last_name,"
 		"initial)"
-		"VALUES(?, ?, ?);",
-		-1, &ctx->stmt_authors, NULL);
+		"VALUES(?, ?, ?);"
+		"ON CONFLICT(first_name, last_name, initial) "
+		"DO UPDATE SET first_name=excluded.first_name "
+		"RETURNING id;",
+		-1, 
+		&ctx->stmt_author, 
+		NULL
+	);
 	
 	sqlite3_prepare_v2(db,
 		"SELECT id "
@@ -119,7 +128,10 @@ int db_prepare(sqlite3 *db, struct AppContext *ctx) {
 		"WHERE first_name=? "
 		"AND last_name=? "
 		"AND initial=?;",
-		-1, &ctx->stmt_author_get, NULL);
+		-1,
+		&ctx->stmt_author_get, 
+		NULL
+	);
 	
 	sqlite3_prepare_v2(db,
 		"INSERT OR IGNORE INTO documents_x_authors("
@@ -127,7 +139,10 @@ int db_prepare(sqlite3 *db, struct AppContext *ctx) {
 		"author_id,"
 		"author_order)"
 		"VALUES(?, ?, ?);",
-		-1, &ctx->stmt_document_x_author, NULL);
+		-1, 
+		&ctx->stmt_document_x_author, 
+		NULL
+	);
 
 	if (!ctx->stmt_document_x_author) {
 		fprintf(stderr, "Failed to prepare stmt_document_x_author\n");
@@ -193,6 +208,43 @@ int db_step_reset(sqlite3_stmt *stmt)
 		return rc;
 	}
 
+int db_get_or_create_author(
+		sqlite3 *db,
+		sqlite3_stmt *stmt,
+		const char *first_name,
+		const char *last_name,
+		const char *initial
+	)
+	{
+
+		sqlite3_reset(stmt);
+		sqlite3_clear_bindings(stmt);
+
+		sqlite3_bind_text(stmt, 1, first_name ? first_name : "", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_text(stmt, 2, last_name ? last_name : "", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_text(stmt, 3, initial ? initial : "", -1, SQLITE_TRANSIENT);
+
+		int rc = sqlite3_step(stmt);
+		
+		if (rc != SQLITE_ROW) {
+			int id = sqlite3_column_int(stmt, 0);
+
+			sqlite3_reset(stmt);
+			sqlite3_clear_bindings(stmt);
+
+			return id;
+		}
+
+		fprintf(stderr, "Author upsert error: %s (%d)\n",
+				sqlite3_errmsg(db), rc);
+
+		sqlite3_reset(stmt);
+		sqlite3_clear_bindings(stmt);
+
+		return -1;
+
+	}
+/*
 int db_insert_author(
 		sqlite3 *db,
 		sqlite3_stmt *stmt,
@@ -221,7 +273,7 @@ int db_insert_author(
 		return sqlite3_last_insert_rowid(db);
 
 	}
-
+*/
 int db_get_author_id(sqlite3_stmt *stmt,
 		const char *first_name,
 		const char *last_name,

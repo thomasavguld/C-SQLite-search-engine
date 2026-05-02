@@ -33,6 +33,8 @@ int main() {
 
 	AppContext ctx = {0};
 
+//	ctx->tx_ops = 0;
+
 	ctx.db = db;
 
 	db_init(db);
@@ -75,8 +77,8 @@ int main() {
 
 	}
 	
-	sqlite3_finalize(ctx.stmt_documents);
-	sqlite3_finalize(ctx.stmt_authors);
+	sqlite3_finalize(ctx.stmt_document);
+	sqlite3_finalize(ctx.stmt_author);
 	sqlite3_finalize(ctx.stmt_author_get);
 	sqlite3_finalize(ctx.stmt_document_x_author);
 
@@ -164,7 +166,7 @@ void process_file(const char *filepath, void *userdata) {
 
 	int document_id = db_insert_document(
 		ctx->db,
-		ctx->stmt_documents,
+		ctx->stmt_document,
 		title,
 		abstract,
 		doi,
@@ -188,11 +190,8 @@ void process_file(const char *filepath, void *userdata) {
 	if (authors && yyjson_is_arr(authors)) {
 		size_t n = yyjson_arr_size(authors);
 
-		printf("[AUTH] n=%zu file=%s\n", n, filepath);
-
 		for (size_t i = 0; i < n; i++) {
 			
-			printf("[AUTH_LOOKUP] doc=%d i=%zu\n", document_id, i);
 
 			yyjson_val *a = yyjson_arr_get(authors, i);
 
@@ -210,21 +209,21 @@ void process_file(const char *filepath, void *userdata) {
 			if(!last_name) last_name = "";
 			if(!initial) initial = "";
 
-			db_insert_author(
+		int author_id =	db_get_or_create_author(
 				ctx->db,
-				ctx->stmt_authors,
+				ctx->stmt_author,
 				first_name,
 				last_name,
 				initial
 			);
 
-			int author_id = db_get_author_id(
+/*			int author_id = db_get_author_id(
 				ctx->stmt_author_get,
 				first_name,
 				last_name,
 				initial
 			);
-
+*/
 			if (author_id < 0) {
 				ctx->insert_errors++;
 				continue;
@@ -242,7 +241,12 @@ void process_file(const char *filepath, void *userdata) {
 			if (rc != SQLITE_DONE) {
 				ctx->insert_errors++;
 			}
-			
+
+/*			if (++ctx->tx_ops >= 1000) {
+				sqlite3_exec(ctx->db, "COMMIT;", NULL, NULL, NULL);
+				sqlite3_exec(ctx->db, "BEGIN;", NULL, NULL, NULL);
+				ctx->tx_ops = 0;
+*/
 			if (ctx->files_processed % 1000 == 0) {
 			printf("LINK: doc=%d author=%d order=%zu\n",
 					document_id, author_id, i);

@@ -33,12 +33,20 @@ int db_insert_document(
 	int pub_year
 	);
 
+int db_get_or_create_author(
+	sqlite3 *db,
+	sqlite3_stmt *stmt,
+	const char *first_name,
+	const char *last_name,
+	const char *initial);
+/*
 int db_insert_author(
 	sqlite3 *db,
 	sqlite3_stmt *stmt,
 	const char *first_name,
 	const char *last_name,
 	const char *initial);
+*/
 
 int db_get_author_id(
 	sqlite3_stmt *stmt,

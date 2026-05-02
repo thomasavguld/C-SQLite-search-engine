@@ -7,13 +7,15 @@
 typedef struct AppContext {
 	sqlite3 *db;
 
-	sqlite3_stmt *stmt_documents;
-	sqlite3_stmt *stmt_authors;
+	sqlite3_stmt *stmt_document;
+	sqlite3_stmt *stmt_author;
 	sqlite3_stmt *stmt_author_get;
 	sqlite3_stmt *stmt_document_x_author;
 	sqlite3_stmt *document_id;
 	sqlite3_stmt *author_id;
 
+//	int tx_ops;
+	
 	int files_total;
 
 	int files_processed;
