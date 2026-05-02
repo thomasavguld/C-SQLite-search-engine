@@ -22,6 +22,8 @@ void list_files(const char *path, file_callback cb, void *userdata) {
 
 	while ((entry = readdir(dir)) != NULL) {
 		
+//		printf("File: %s/%s\n", path, entry->d_name);
+
 		if (entry->d_name[0] == '.') continue;
 		
 		char fullpath[PATH_MAX];

@@ -111,6 +111,8 @@ int main() {
 
 void process_file(const char *filepath, void *userdata) {
 
+//	printf("Process: %s\n", filepath); 
+
 	AppContext *ctx = (AppContext *)userdata;
 
 	char *json = read_file(filepath);
@@ -130,7 +132,10 @@ void process_file(const char *filepath, void *userdata) {
 
 //	printf("processing: %s\n", filepath);
 
-	
+	if (ctx->files_processed % 50 == 0) {
+		printf("checkpoint %d\n", ctx->files_processed);
+	}
+
 	yyjson_val *root = yyjson_doc_get_root(doc);
 
 	yyjson_val *abstract_v = yyjson_obj_get(root, "abstract");
@@ -183,8 +188,12 @@ void process_file(const char *filepath, void *userdata) {
 	if (authors && yyjson_is_arr(authors)) {
 		size_t n = yyjson_arr_size(authors);
 
+		printf("[AUTH] n=%zu file=%s\n", n, filepath);
+
 		for (size_t i = 0; i < n; i++) {
 			
+			printf("[AUTH_LOOKUP] doc=%d i=%zu\n", document_id, i);
+
 			yyjson_val *a = yyjson_arr_get(authors, i);
 
 			const char *first_name =
@@ -202,6 +211,7 @@ void process_file(const char *filepath, void *userdata) {
 			if(!initial) initial = "";
 
 			db_insert_author(
+				ctx->db,
 				ctx->stmt_authors,
 				first_name,
 				last_name,
@@ -219,13 +229,25 @@ void process_file(const char *filepath, void *userdata) {
 				ctx->insert_errors++;
 				continue;
 			}
+				
+			int rc;
 
-			db_document_x_author(
+			rc = db_document_x_author(
 				ctx->stmt_document_x_author,
 				document_id,
 				author_id,
 				(int) i
-			);
+				);
+			
+			if (rc != SQLITE_DONE) {
+				ctx->insert_errors++;
+			}
+			
+			if (ctx->files_processed % 1000 == 0) {
+			printf("LINK: doc=%d author=%d order=%zu\n",
+					document_id, author_id, i);
+			}
+			
 		}
 	
 	}
