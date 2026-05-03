@@ -4,11 +4,7 @@
 #include <sqlite3.h>
 
 #include <app_context.h>
-/*
-typedef struct 
-	AppContext 
-	AppContext;
-*/
+
 int exec_sql(
 	sqlite3 *db,
   	const char *sql
@@ -30,15 +26,27 @@ int db_insert_document(
 	const char *abstract,
 	const char *doi,
 	const char *issn,
-	int pub_year
+	int pub_year,
+	int *out_id
 	);
+/*
+int db_exec_step(
+	sqlite3_stmt *stmt
+	);
+
+int db_query_step(
+	sqlite3_stmt *stmt
+	);
+*/
 
 int db_get_or_create_author(
 	sqlite3 *db,
 	sqlite3_stmt *stmt,
 	const char *first_name,
 	const char *last_name,
-	const char *initial);
+	const char *initial,
+	int *out_id
+	);
 /*
 int db_insert_author(
 	sqlite3 *db,
@@ -46,7 +54,7 @@ int db_insert_author(
 	const char *first_name,
 	const char *last_name,
 	const char *initial);
-*/
+
 
 int db_get_author_id(
 	sqlite3_stmt *stmt,
@@ -54,6 +62,7 @@ int db_get_author_id(
 	const char *last_name,
 	const char *initial
 	);
+*/
 
 int db_document_x_author(
 	sqlite3_stmt *stmt,

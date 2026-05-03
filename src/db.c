@@ -67,11 +67,12 @@ int db_init(sqlite3 *db) {
 		"id INTEGER PRIMARY KEY,"
 		"first_name TEXT,"
 		"last_name TEXT, "
-		"initial TEXT "
+		"initial TEXT, "
+		"UNIQUE(first_name, last_name, initial)"
 		");"
 	);
 
-	exec_sql(db,
+/*	exec_sql(db,
 		"CREATE UNIQUE INDEX IF NOT EXISTS "
 		"idx_authors_unique "
 		"ON authors("
@@ -80,14 +81,22 @@ int db_init(sqlite3 *db) {
 		"initial"
 		");"
 	);
-
+*/
 	exec_sql(db,
 		"CREATE TABLE IF NOT EXISTS documents_x_authors ("
-		"document_id INTEGER, "
-		"author_id INTEGER, "
+		"document_id INTEGER NOT NULL, "
+		"author_id INTEGER NOT NULL, "
 		"author_order INTEGER, "
 		"PRIMARY KEY (document_id, author_id)"
 		");"
+	);
+	
+	exec_sql(db,
+		"CREATE INDEX idx_doc_auth ON documents_x_authors(document_id);"
+	);
+
+	exec_sql(db,
+		"CREATE INDEX idx_auth_doc ON documents_x_authors(author_id);"
 	);
 
 	return SQLITE_OK;
@@ -95,7 +104,9 @@ int db_init(sqlite3 *db) {
 
 int db_prepare(sqlite3 *db, struct AppContext *ctx) {
 
-	sqlite3_prepare_v2(db,
+	int rc;
+
+	rc = sqlite3_prepare_v2(db,
 		"INSERT INTO documents("
 		"title,"
 		"abstract,"
@@ -107,13 +118,18 @@ int db_prepare(sqlite3 *db, struct AppContext *ctx) {
 		&ctx->stmt_document, 
 		NULL
 	);
-			
-	sqlite3_prepare_v2(db,
+
+	if (rc != SQLITE_OK) {
+		fprintf(stderr, "Prepare failed: %s\n", sqlite3_errmsg(db));
+		return rc;
+	}
+
+	rc = sqlite3_prepare_v2(db,
 		"INSERT INTO authors("
 		"first_name,"
 		"last_name,"
 		"initial)"
-		"VALUES(?, ?, ?);"
+		"VALUES(?, ?, ?) "
 		"ON CONFLICT(first_name, last_name, initial) "
 		"DO UPDATE SET first_name=excluded.first_name "
 		"RETURNING id;",
@@ -121,31 +137,36 @@ int db_prepare(sqlite3 *db, struct AppContext *ctx) {
 		&ctx->stmt_author, 
 		NULL
 	);
+
+	if (rc != SQLITE_OK) {
+		fprintf(stderr, "Prepare failed: %s\n", sqlite3_errmsg(db));
+		return rc;
+	}
 	
-	sqlite3_prepare_v2(db,
-		"SELECT id "
-		"FROM authors "
-		"WHERE first_name=? "
-		"AND last_name=? "
-		"AND initial=?;",
-		-1,
-		&ctx->stmt_author_get, 
-		NULL
-	);
 	
-	sqlite3_prepare_v2(db,
+	rc = sqlite3_prepare_v2(db,
 		"INSERT OR IGNORE INTO documents_x_authors("
 		"document_id,"
 		"author_id,"
-		"author_order)"
-		"VALUES(?, ?, ?);",
+		"author_order) "
+		"VALUES "
+		"(?, ?, ?),"
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?); "
+		");",
 		-1, 
 		&ctx->stmt_document_x_author, 
 		NULL
 	);
 
-	if (!ctx->stmt_document_x_author) {
-		fprintf(stderr, "Failed to prepare stmt_document_x_author\n");
+	if (rc != SQLITE_OK) {
+		fprintf(stderr, "Prepare failed: %s\n", sqlite3_errmsg(db));
+		return rc;
 	}
 
 	return SQLITE_OK;
@@ -158,7 +179,8 @@ int db_insert_document(
 		const char *abstract,
 		const char *doi,
 		const char *issn,
-		int pub_year
+		int pub_year,
+		int *out_id
 	) {
 		int rc;
 
@@ -182,23 +204,30 @@ int db_insert_document(
 		
 		rc = sqlite3_step(stmt);
 				
-		if (rc != SQLITE_DONE) {
-			fprintf(stderr, "Document insert error: %s (%d)\n",
-				sqlite3_errmsg(db), rc);
+		if (rc == SQLITE_DONE) {
+			*out_id = (int)sqlite3_last_insert_rowid(db);
+		
+			sqlite3_reset(stmt);
+			sqlite3_clear_bindings(stmt);
+		
+			return SQLITE_OK;
 		}
+
+		fprintf(stderr, "Document insert error: %s (%d)\n",
+			sqlite3_errmsg(db), rc);
 
 		sqlite3_reset(stmt);
 		sqlite3_clear_bindings(stmt);
 
-		return sqlite3_last_insert_rowid(db);
+		return rc;
 	}
 
-int db_step_reset(sqlite3_stmt *stmt)
+int db_exec_reset(sqlite3_stmt *stmt)
 	{
 		int rc = sqlite3_step(stmt);
 
 		if (rc != SQLITE_DONE) {
-			fprintf(stderr, "SQLite step error: %s (%d)\n",
+			fprintf(stderr, "SQLite exec error: %s (%d)\n",
 				sqlite3_errmsg(sqlite3_db_handle(stmt)), rc);
 		}
 
@@ -208,15 +237,20 @@ int db_step_reset(sqlite3_stmt *stmt)
 		return rc;
 	}
 
+int db_query_step(sqlite3_stmt *stmt) 
+{
+	int rc = sqlite3_step(stmt);
+	return rc;
+}
+
 int db_get_or_create_author(
 		sqlite3 *db,
 		sqlite3_stmt *stmt,
 		const char *first_name,
 		const char *last_name,
-		const char *initial
-	)
-	{
-
+		const char *initial,
+		int *out_id
+	) {
 		sqlite3_reset(stmt);
 		sqlite3_clear_bindings(stmt);
 
@@ -226,54 +260,63 @@ int db_get_or_create_author(
 
 		int rc = sqlite3_step(stmt);
 		
-		if (rc != SQLITE_ROW) {
-			int id = sqlite3_column_int(stmt, 0);
-
+		if (rc == SQLITE_ROW) {
+			*out_id = sqlite3_column_int(stmt, 0);
+			
 			sqlite3_reset(stmt);
 			sqlite3_clear_bindings(stmt);
-
-			return id;
+			return SQLITE_OK;
 		}
 
-		fprintf(stderr, "Author upsert error: %s (%d)\n",
-				sqlite3_errmsg(db), rc);
-
+		fprintf(stderr, "Author upsert failed - rc: %d msg: %s\n",
+				rc, sqlite3_errmsg(db));
+	
 		sqlite3_reset(stmt);
 		sqlite3_clear_bindings(stmt);
+		return rc;
+		
+}
 
-		return -1;
 
-	}
-/*
-int db_insert_author(
-		sqlite3 *db,
+int db_document_x_author_batch(
 		sqlite3_stmt *stmt,
-		const char *first_name,
-		const char *last_name,
-		const char *initial)
+		int *doc_id,
+		int *author_id,
+		int *order,
+		int count
+		)
 	{
 
 		sqlite3_reset(stmt);
 		sqlite3_clear_bindings(stmt);
 
-		sqlite3_bind_text(stmt, 1, first_name ? first_name : "", -1, SQLITE_TRANSIENT);
-		sqlite3_bind_text(stmt, 2, last_name ? last_name : "", -1, SQLITE_TRANSIENT);
-		sqlite3_bind_text(stmt, 3, initial ? initial : "", -1, SQLITE_TRANSIENT);
+		int param = 1;
+		
+		for (int i = 0; i < count; i++) {
+		sqlite3_bind_int(stmt, param++, doc_id[i]);
+		sqlite3_bind_int(stmt, param++, author_id[i]);
+		sqlite3_bind_int(stmt, param++, order_id[i]);
+		}
 
+		int max_rows = 8;
+		
+		for (int i = count; i < max_rows; i++) {
+		sqlite3_bind_int(stmt, param++, -1);
+		sqlite3_bind_int(stmt, param++, -1);
+		sqlite3_bind_int(stmt, param++, -1);
+		}
+		
 		int rc = sqlite3_step(stmt);
 		
 		if (rc != SQLITE_DONE) {
-			fprintf(stderr, "Author insert error: %s (%d)\n",
+			fprintf(stderr, "Batch insert error: %s (%d)\n",
 				sqlite3_errmsg(db), rc);
 		}
 
-		sqlite3_reset(stmt);
-		sqlite3_clear_bindings(stmt);
-
-		return sqlite3_last_insert_rowid(db);
+		return rc);
 
 	}
-*/
+
 int db_get_author_id(sqlite3_stmt *stmt,
 		const char *first_name,
 		const char *last_name,
@@ -307,27 +350,45 @@ int db_document_x_author(
 		sqlite3_stmt *stmt,
 		int document_id,
 		int author_id,
-		int order)
+		int order
+	) {
+		
+		int rc;
 
-{
 		sqlite3_reset(stmt);
 		sqlite3_clear_bindings(stmt);
 
-		sqlite3_bind_int(stmt, 1, document_id);
-		sqlite3_bind_int(stmt, 2, author_id);
-		sqlite3_bind_int(stmt, 3, order);
+		rc = sqlite3_bind_int(stmt, 1, document_id);
+		if (rc != SQLITE_OK) return rc;
 
-		int rc = sqlite3_step(stmt);
+		rc = sqlite3_bind_int(stmt, 2, author_id);
+		if (rc != SQLITE_OK) return rc;
+		
+		rc = sqlite3_bind_int(stmt, 3, order);
+		if (rc != SQLITE_OK) return rc;
 
-		if (rc != SQLITE_DONE) {
-			fprintf(stderr, "SQL ERROR: %s (%d)\n",
-				sqlite3_errmsg(sqlite3_db_handle(stmt)), rc);
+		rc = sqlite3_step(stmt);
+
+		if (rc == SQLITE_DONE) {
+			sqlite3_reset(stmt);
+			sqlite3_clear_bindings(stmt);
+			return SQLITE_OK;
 		}
+		
+		if (rc == SQLITE_CONSTRAINT) {
+			sqlite3_reset(stmt);
+			sqlite3_clear_bindings(stmt);
+			return SQLITE_CONSTRAINT;
+		}
+
+		fprintf(stderr, "Document_x_author failed rc=%d msg=%s\n",
+				rc, sqlite3_errmsg(sqlite3_db_handle(stmt)));
 
 		sqlite3_reset(stmt);
 		sqlite3_clear_bindings(stmt);
 		
 		return rc;
+		
 }
 
 int callback(void *data, int argc, char **argv, char **colNames) {

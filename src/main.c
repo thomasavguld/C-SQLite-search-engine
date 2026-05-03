@@ -19,6 +19,41 @@
 
 void process_file(const char *filepath, void *userdata);
 
+static void batch_wrapper(const char *filepath, void *userdata)
+{
+	AppContext *ctx = (AppContext *)userdata;
+
+	process_file(filepath, userdata);
+
+	static int ops = 0;
+	ops++;
+
+	if (ops % 1000 == 0) {
+		printf("OPS: %d files=%d\n", ops, ctx->files_processed);
+	}
+
+	ctx->tx_files_since_commit++;
+
+	if (ctx->tx_files_since_commit >= ctx->tx_limit) {
+
+		int rc;
+		
+		rc = sqlite3_exec(ctx->db, "COMMIT;", NULL, NULL, NULL);
+		if (rc != SQLITE_OK) {
+				fprintf(stderr, "COMMIT failed: %s\n", sqlite3_errmsg(ctx->db));
+		}
+
+		rc = sqlite3_exec(ctx->db, "BEGIN;", NULL, NULL, NULL);
+		if (rc != SQLITE_OK) {
+				fprintf(stderr, "BEGIN failed: %s\n", sqlite3_errmsg(ctx->db));
+		}
+
+		printf("TX boundary at file %d\n", ctx->files_processed);
+
+		ctx->tx_files_since_commit = 0;
+		}
+}
+
 //Main function
 int main() {
 
@@ -33,8 +68,9 @@ int main() {
 
 	AppContext ctx = {0};
 
-//	ctx->tx_ops = 0;
-
+	ctx.tx_files_since_commit = 0;
+	ctx.tx_limit = 200;
+		
 	ctx.db = db;
 
 	db_init(db);
@@ -44,7 +80,7 @@ int main() {
 	
 	clock_gettime(CLOCK_MONOTONIC, &ctx.start_time);
 
-	list_files(WAREHOUSE_PATH, process_file, &ctx);
+	list_files(WAREHOUSE_PATH, batch_wrapper, &ctx);
 
 	clock_gettime(CLOCK_MONOTONIC, &ctx.end_time);
 
@@ -79,7 +115,6 @@ int main() {
 	
 	sqlite3_finalize(ctx.stmt_document);
 	sqlite3_finalize(ctx.stmt_author);
-	sqlite3_finalize(ctx.stmt_author_get);
 	sqlite3_finalize(ctx.stmt_document_x_author);
 
 	//	sqlite3_finalize(ctx.stmt_fts);  <---------------------------
@@ -132,12 +167,6 @@ void process_file(const char *filepath, void *userdata) {
 
 	ctx->files_processed++;
 
-//	printf("processing: %s\n", filepath);
-
-	if (ctx->files_processed % 50 == 0) {
-		printf("checkpoint %d\n", ctx->files_processed);
-	}
-
 	yyjson_val *root = yyjson_doc_get_root(doc);
 
 	yyjson_val *abstract_v = yyjson_obj_get(root, "abstract");
@@ -164,17 +193,19 @@ void process_file(const char *filepath, void *userdata) {
 
 // INSERT DOCUMENTS
 
-	int document_id = db_insert_document(
+	int document_id; 
+	int rc_doc = db_insert_document(
 		ctx->db,
 		ctx->stmt_document,
 		title,
 		abstract,
 		doi,
 		issn,
-		pub_year
+		pub_year,
+		&document_id
 	);
 
-	if (document_id < 0) {
+	if (rc_doc != SQLITE_OK) {
 		ctx->insert_errors++;
 		yyjson_doc_free(doc);
 		free(json);
@@ -209,12 +240,14 @@ void process_file(const char *filepath, void *userdata) {
 			if(!last_name) last_name = "";
 			if(!initial) initial = "";
 
-		int author_id =	db_get_or_create_author(
+		int author_id;
+		int rc_author = db_get_or_create_author(
 				ctx->db,
 				ctx->stmt_author,
 				first_name,
 				last_name,
-				initial
+				initial,
+				&author_id
 			);
 
 /*			int author_id = db_get_author_id(
@@ -224,32 +257,20 @@ void process_file(const char *filepath, void *userdata) {
 				initial
 			);
 */
-			if (author_id < 0) {
+			if (rc_author != SQLITE_OK) {
 				ctx->insert_errors++;
 				continue;
 			}
 				
-			int rc;
-
-			rc = db_document_x_author(
+			int rc_link = db_document_x_author(
 				ctx->stmt_document_x_author,
 				document_id,
 				author_id,
 				(int) i
 				);
 			
-			if (rc != SQLITE_DONE) {
+			if (rc_link != SQLITE_OK && rc_link != SQLITE_CONSTRAINT) {
 				ctx->insert_errors++;
-			}
-
-/*			if (++ctx->tx_ops >= 1000) {
-				sqlite3_exec(ctx->db, "COMMIT;", NULL, NULL, NULL);
-				sqlite3_exec(ctx->db, "BEGIN;", NULL, NULL, NULL);
-				ctx->tx_ops = 0;
-*/
-			if (ctx->files_processed % 1000 == 0) {
-			printf("LINK: doc=%d author=%d order=%zu\n",
-					document_id, author_id, i);
 			}
 			
 		}
