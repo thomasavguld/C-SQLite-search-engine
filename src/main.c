@@ -7,6 +7,7 @@
 #include "db.h"
 #include "fs.h"
 #include "json.h"
+#include "app_context.h"
 
 // define db & warehouse paths
 #ifndef DB_PATH
@@ -25,35 +26,82 @@ static void batch_wrapper(const char *filepath, void *userdata)
 
 	process_file(filepath, userdata);
 
-	static int ops = 0;
-	ops++;
-
-	if (ops % 1000 == 0) {
-		printf("OPS: %d files=%d\n", ops, ctx->files_processed);
-	}
-
 	ctx->tx_files_since_commit++;
+	ctx->tx_ops++;
+
 
 	if (ctx->tx_files_since_commit >= ctx->tx_limit) {
-
-		int rc;
 		
-		rc = sqlite3_exec(ctx->db, "COMMIT;", NULL, NULL, NULL);
-		if (rc != SQLITE_OK) {
-				fprintf(stderr, "COMMIT failed: %s\n", sqlite3_errmsg(ctx->db));
-		}
+		struct timespec tx_end;
+		clock_gettime(CLOCK_MONOTONIC, &tx_end);
+	
+		double tx_time =
+			(tx_end.tv_sec - ctx->tx_start.tv_sec) +
+			(tx_end.tv_nsec - ctx->tx_start.tv_nsec) / 1e9;
 
-		rc = sqlite3_exec(ctx->db, "BEGIN;", NULL, NULL, NULL);
-		if (rc != SQLITE_OK) {
-				fprintf(stderr, "BEGIN failed: %s\n", sqlite3_errmsg(ctx->db));
-		}
+		double core_time =
+			(tx_end.tv_sec - ctx->core_start_time.tv_sec) +
+			(tx_end.tv_nsec - ctx->core_start_time.tv_nsec) / 1e9;
+		
+		double files_per_sec = 
+			(tx_time > 0) ? (double)ctx->tx_files_since_commit / tx_time : 0;
+		
+		long core_ops = ctx->doc_ops + ctx->author_ops;
 
-		printf("TX boundary at file %d\n", ctx->files_processed);
+		double core_ops_sec = 
+			(core_time > 0) ? (double)core_ops / core_time : 0;
 
+		double rel_ops_sec = 
+			(tx_time > 0) ? (double)ctx->rel_ops / tx_time : 0;
+		
+		struct timespec commit_start, commit_end;
+		
+		clock_gettime(CLOCK_MONOTONIC, &commit_start);
+		
+		sqlite3_exec(ctx->db, "COMMIT;", NULL, NULL, NULL);
+			
+		clock_gettime(CLOCK_MONOTONIC, &commit_end);
+		
+		double commit_time =
+			(commit_end.tv_sec - commit_start.tv_sec) +
+			(commit_end.tv_nsec - commit_start.tv_nsec) / 1e9;
+
+		printf("[COMMIT] time=%.6f sec\n", commit_time);
+
+		sqlite3_exec(ctx->db, "BEGIN;", NULL, NULL, NULL);
+
+		printf("[L1 FILE] tx files=%d time=%.3f sec files/sec=%.2f\n",
+			ctx->tx_files_since_commit,
+			tx_time,
+			files_per_sec
+		      );
+		
+		printf("[L2 CORE] ops=%ld ops/sec=%.2f\n",
+			core_ops,
+			core_ops_sec
+		      );
+
+		printf("[L3 REL] ops=%d batches=%d ops/sec=%.2f\n",
+			ctx->rel_ops,
+			ctx->rel_batches,
+			rel_ops_sec
+		      );
+
+		printf("TX boundary at file %d\n", 
+			ctx->files_processed
+		      );
+
+		ctx->doc_ops = 0;
+		ctx->author_ops = 0;
+		ctx->rel_ops = 0;
+		ctx->rel_batches = 0;
 		ctx->tx_files_since_commit = 0;
-		}
-}
+		
+		clock_gettime(CLOCK_MONOTONIC, &ctx->tx_start);
+		clock_gettime(CLOCK_MONOTONIC, &ctx->core_start_time);
 
+	}
+}
 //Main function
 int main() {
 
@@ -78,15 +126,22 @@ int main() {
 
 	sqlite3_exec(db, "BEGIN;", 0, 0 ,0);
 	
-	clock_gettime(CLOCK_MONOTONIC, &ctx.start_time);
+/*	clock_gettime(CLOCK_MONOTONIC, &ctx.start_time);
+	clock_gettime(CLOCK_MONOTONIC, &ctx->tx_start);
+	clock_gettime(CLOCK_MONOTONIC, &ctx->core_start_time);
 
+	ctx->doc_ops = 0;
+	ctx->author_ops = 0;
+	ctx->rel_ops = 0;
+	ctx->rel_batches = 0;
+*/
 	list_files(WAREHOUSE_PATH, batch_wrapper, &ctx);
 
-	clock_gettime(CLOCK_MONOTONIC, &ctx.end_time);
+//	clock_gettime(CLOCK_MONOTONIC, &ctx.end_time);
 
 	sqlite3_exec(db, "COMMIT;", 0, 0, 0);
 
-	double elapsed_sec =
+/*	double elapsed_sec =
 		(ctx.end_time.tv_sec - ctx.start_time.tv_sec) +
 		(ctx.end_time.tv_nsec - ctx.start_time.tv_nsec) / 1e9;
 
@@ -112,7 +167,7 @@ int main() {
 	printf("Inserts/sec	: %.2f\n", inserts_per_sec);
 
 	}
-	
+*/	
 	sqlite3_finalize(ctx.stmt_document);
 	sqlite3_finalize(ctx.stmt_author);
 	sqlite3_finalize(ctx.stmt_document_x_author);
@@ -145,6 +200,7 @@ int main() {
 	return 0;
 
 }
+
 
 void process_file(const char *filepath, void *userdata) {
 
@@ -211,7 +267,8 @@ void process_file(const char *filepath, void *userdata) {
 		free(json);
 		return;
 	}
-
+	
+	ctx->doc_ops++;
 	ctx->insert_ok++;
 
 // AUTHORS
@@ -220,6 +277,11 @@ void process_file(const char *filepath, void *userdata) {
 
 	if (authors && yyjson_is_arr(authors)) {
 		size_t n = yyjson_arr_size(authors);
+
+		int doc_ids[REL_BATCH];
+		int author_ids[REL_BATCH];
+		int orders[REL_BATCH];
+		int rel_count = 0;
 
 		for (size_t i = 0; i < n; i++) {
 			
@@ -250,33 +312,46 @@ void process_file(const char *filepath, void *userdata) {
 				&author_id
 			);
 
-/*			int author_id = db_get_author_id(
-				ctx->stmt_author_get,
-				first_name,
-				last_name,
-				initial
-			);
-*/
 			if (rc_author != SQLITE_OK) {
 				ctx->insert_errors++;
 				continue;
 			}
-				
-			int rc_link = db_document_x_author(
-				ctx->stmt_document_x_author,
-				document_id,
-				author_id,
-				(int) i
+		
+			doc_ids[rel_count] = document_id;
+			author_ids[rel_count] = author_id;
+			orders[rel_count] = (int)i;
+
+			rel_count++;
+			
+			ctx->author_ops++;
+			
+			if (rel_count >= REL_BATCH) {
+				flush_rel_batch(
+					ctx,
+					ctx->stmt_document_x_author,
+					doc_ids,
+					author_ids,
+					orders,
+					rel_count
 				);
-			
-			if (rc_link != SQLITE_OK && rc_link != SQLITE_CONSTRAINT) {
-				ctx->insert_errors++;
+				rel_count = 0;			
 			}
-			
+
+
 		}
-	
-	}
+			if (rel_count > 0) {
+				flush_rel_batch(
+					ctx,
+					ctx->stmt_document_x_author,
+					doc_ids,
+					author_ids,
+					orders,
+					rel_count
+				);
+			}
 
 	yyjson_doc_free(doc);
 	free(json);
+
+	}
 }

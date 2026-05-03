@@ -45,9 +45,13 @@ int db_init(sqlite3 *db) {
 	sqlite3_busy_timeout(db, 5000);
 
 	// SQLite PRAGMA settings for bulk ingestion
-	exec_sql(db, "PRAGMA journal_mode=WAL;");
+	exec_sql(db, "PRAGMA journal_mode=0;");
 	exec_sql(db, "PRAGMA synchronous=OFF;");
-	exec_sql(db, "PRAGMA cache_size=100000 ;");
+	exec_sql(db, "PRAGMA cache_size=-100000 ;");
+	exec_sql(db, "PRAGMA temp_store=MEMORY ;");
+	exec_sql(db, "PRAGMA page_size=4096 ;");
+	exec_sql(db, "PRAGMA mmap_size=0 ;");
+	exec_sql(db, "PRAGMA cahe_spill=OFF ;");
 
 	// Create tables if they don't already exist
 
@@ -90,7 +94,7 @@ int db_init(sqlite3 *db) {
 		"PRIMARY KEY (document_id, author_id)"
 		");"
 	);
-	
+/*	
 	exec_sql(db,
 		"CREATE INDEX idx_doc_auth ON documents_x_authors(document_id);"
 	);
@@ -98,7 +102,7 @@ int db_init(sqlite3 *db) {
 	exec_sql(db,
 		"CREATE INDEX idx_auth_doc ON documents_x_authors(author_id);"
 	);
-
+*/
 	return SQLITE_OK;
 }
 
@@ -124,6 +128,30 @@ int db_prepare(sqlite3 *db, struct AppContext *ctx) {
 		return rc;
 	}
 
+	const char *sql_author =
+		"INSERT INTO authors("
+		"first_name,"
+		"last_name,"
+		"initial)"
+		"VALUES(?, ?, ?) "
+		"ON CONFLICT(first_name, last_name, initial) "
+		"DO UPDATE SET first_name=excluded.first_name "
+		"RETURNING id;";
+
+	sqlite3_prepare_v2(
+			db,
+			sql_author,
+			-1,
+			ctx->stmt_author,
+			NULL
+			);
+
+	if (!ctx->stmt_author) {
+		fprintf(stderr, "Failed to prepare stmt_author: %s\n");
+		fprint("Author SQL: %s\n", sql_author);
+	}
+ /*
+	
 	rc = sqlite3_prepare_v2(db,
 		"INSERT INTO authors("
 		"first_name,"
@@ -142,7 +170,7 @@ int db_prepare(sqlite3 *db, struct AppContext *ctx) {
 		fprintf(stderr, "Prepare failed: %s\n", sqlite3_errmsg(db));
 		return rc;
 	}
-	
+*/	
 	
 	rc = sqlite3_prepare_v2(db,
 		"INSERT OR IGNORE INTO documents_x_authors("
@@ -150,14 +178,38 @@ int db_prepare(sqlite3 *db, struct AppContext *ctx) {
 		"author_id,"
 		"author_order) "
 		"VALUES "
-		"(?, ?, ?),"
 		"(?, ?, ?), "
 		"(?, ?, ?), "
 		"(?, ?, ?), "
 		"(?, ?, ?), "
 		"(?, ?, ?), "
 		"(?, ?, ?), "
-		"(?, ?, ?); "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?), "
+		"(?, ?, ?);"
 		");",
 		-1, 
 		&ctx->stmt_document_x_author, 
@@ -222,27 +274,6 @@ int db_insert_document(
 		return rc;
 	}
 
-int db_exec_reset(sqlite3_stmt *stmt)
-	{
-		int rc = sqlite3_step(stmt);
-
-		if (rc != SQLITE_DONE) {
-			fprintf(stderr, "SQLite exec error: %s (%d)\n",
-				sqlite3_errmsg(sqlite3_db_handle(stmt)), rc);
-		}
-
-		sqlite3_reset(stmt);
-		sqlite3_clear_bindings(stmt);
-
-		return rc;
-	}
-
-int db_query_step(sqlite3_stmt *stmt) 
-{
-	int rc = sqlite3_step(stmt);
-	return rc;
-}
-
 int db_get_or_create_author(
 		sqlite3 *db,
 		sqlite3_stmt *stmt,
@@ -280,9 +311,9 @@ int db_get_or_create_author(
 
 int db_document_x_author_batch(
 		sqlite3_stmt *stmt,
-		int *doc_id,
-		int *author_id,
-		int *order,
+		int *doc_ids,
+		int *author_ids,
+		int *orders,
 		int count
 		)
 	{
@@ -293,12 +324,12 @@ int db_document_x_author_batch(
 		int param = 1;
 		
 		for (int i = 0; i < count; i++) {
-		sqlite3_bind_int(stmt, param++, doc_id[i]);
-		sqlite3_bind_int(stmt, param++, author_id[i]);
-		sqlite3_bind_int(stmt, param++, order_id[i]);
+		sqlite3_bind_int(stmt, param++, doc_ids[i]);
+		sqlite3_bind_int(stmt, param++, author_ids[i]);
+		sqlite3_bind_int(stmt, param++, orders[i]);
 		}
 
-		int max_rows = 8;
+		int max_rows = 32;
 		
 		for (int i = count; i < max_rows; i++) {
 		sqlite3_bind_int(stmt, param++, -1);
@@ -310,39 +341,10 @@ int db_document_x_author_batch(
 		
 		if (rc != SQLITE_DONE) {
 			fprintf(stderr, "Batch insert error: %s (%d)\n",
-				sqlite3_errmsg(db), rc);
+				sqlite3_errmsg(sqlite3_db_handle(stmt)), rc);
 		}
 
-		return rc);
-
-	}
-
-int db_get_author_id(sqlite3_stmt *stmt,
-		const char *first_name,
-		const char *last_name,
-		const char *initial
-		)
-	{
-
-		sqlite3_reset(stmt);
-		sqlite3_clear_bindings(stmt);
-
-		sqlite3_bind_text(stmt, 1, first_name ? first_name : "", -1, SQLITE_TRANSIENT);
-		sqlite3_bind_text(stmt, 2, last_name ? last_name : "", -1, SQLITE_TRANSIENT);
-		sqlite3_bind_text(stmt, 3, initial ? initial : "",  -1, SQLITE_TRANSIENT);
-
-		int rc = sqlite3_step(stmt);
-
-		if (rc == SQLITE_ROW) {
-			int id = sqlite3_column_int(stmt, 0);
-			sqlite3_reset(stmt);
-			sqlite3_clear_bindings(stmt);
-			return id;
-		}
-
-		sqlite3_reset(stmt);
-		sqlite3_clear_bindings(stmt);
-	   	return -1;
+		return rc;
 
 	}
 
@@ -390,6 +392,35 @@ int db_document_x_author(
 		return rc;
 		
 }
+
+void flush_rel_batch(
+		AppContext *ctx,
+		sqlite3_stmt *stmt,
+		int *doc_ids,
+		int *author_ids,
+		int *orders,
+		int rel_count
+
+) {
+	
+	if (rel_count <= 0) return;
+
+	int rc = db_document_x_author_batch(
+		stmt,	
+		doc_ids,
+		author_ids,
+		orders,
+		rel_count
+	);
+
+	ctx->rel_ops += rel_count;
+	ctx->rel_batches++;
+
+	if (rc != SQLITE_DONE) {
+		ctx->insert_errors++;
+	}
+}
+
 
 int callback(void *data, int argc, char **argv, char **colNames) {
 	(void)data;
