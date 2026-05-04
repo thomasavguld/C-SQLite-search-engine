@@ -4,28 +4,104 @@
 #include <sqlite3.h>
 #include <time.h>
 
+#include "staging.h"
+#include "pipeline.h"
+
+/* -------------------------------------------------- */
+/* metrics runtime                                   */
+/* -------------------------------------------------- */
+
+typedef struct {
+    struct timespec global_start;
+    struct timespec last_sample;
+
+    long last_files;
+
+    long last_docs;
+    long last_inserts;
+
+    double fs_time;
+    double stage_time;
+    double db_time;
+
+    long fs_calls;
+    long stage_calls;
+    long db_commits;
+
+    double last_commit_ms;
+} MetricsRuntime;
+
+/* -------------------------------------------------- */
+/* main application context                          */
+/* -------------------------------------------------- */
+
 typedef struct AppContext {
-	sqlite3 *db;
 
-	sqlite3_stmt *stmt_document;
-	sqlite3_stmt *stmt_author;
-	sqlite3_stmt *stmt_document_x_author;
+    /* =========================
+     * database layer
+     * ========================= */
+    sqlite3 *db;
 
-	int tx_ops;
-	int tx_limit;
-	int tx_files_since_commit;
+    sqlite3_stmt *stmt_document;
+    sqlite3_stmt *stmt_author;
+    sqlite3_stmt *stmt_document_x_author;
 
-	int files_total;
+    /* =========================
+     * staging layer
+     * ========================= */
+    StagingContext staging;
 
-	int files_processed;
-	int insert_ok;
+    /* =========================
+     * pipeline state
+     * ========================= */
+    PipelineState state;
 
-	int insert_errors;
-	int read_errors;
-	int parse_errors;
+    /* =========================
+     * metrics
+     * ========================= */
+    MetricsRuntime metrics;
 
-	struct timespec start_time;
-	struct timespec end_time;
+    /* =========================
+     * file processing counters
+     * ========================= */
+    int files_processed;
+    int parse_errors;
+    int read_errors;
+
+    /* =========================
+     * database insert stats
+     * ========================= */
+    int insert_ok;
+    int insert_errors;
+
+    /* =========================
+     * relational stats
+     * ========================= */
+    int doc_ops;
+    int author_ops;
+    int rel_ops;
+    int rel_batches;
+
+    /* =========================
+     * transaction control
+     * ========================= */
+    int tx_files_since_commit;
+    int tx_limit;
+
+    // Totals
+    long total_doc_ops;
+    long total_author_ops;
+    long total_rel_ops;
+
+    /* =========================
+     * timing (raw profiling)
+     * ========================= */
+    struct timespec start_time;
+    struct timespec end_time;
+
+    struct timespec tx_start;
+    struct timespec core_start_time;
+
 } AppContext;
 
-#endif
+#endif /* APP_CONTEXT_H */

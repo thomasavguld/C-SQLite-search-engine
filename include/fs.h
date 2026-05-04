@@ -1,14 +1,13 @@
 #ifndef FS_H
 #define FS_H
 
-#include <sqlite3.h>
+#include <stddef.h>
 
-typedef void (*file_callback) (const char *filepath, void *userdata);
+/* callback-typ måste definieras först */
+typedef void (*file_callback)(const char *path, void *userdata);
 
-char *read_file(const char *filepath);
-void list_files(const char *path, file_callback cb, void *userdata); 
+char *read_file(const char *path);
+
+void list_files(const char *root, file_callback cb, void *userdata);
 
 #endif
-
-
-

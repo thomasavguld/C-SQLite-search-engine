@@ -1,0 +1,15 @@
+#ifndef PIPELINE_H
+#define PIPELINE_H
+
+typedef enum {
+    STATE_INIT = 0,
+    STATE_FS_RUNNING,
+    STATE_PROCESSING_FILE,
+    STATE_STAGING,
+    STATE_COMMITTING,
+    STATE_FINALIZING,
+    STATE_DONE,
+    STATE_ERROR
+} PipelineState;
+
+#endif
