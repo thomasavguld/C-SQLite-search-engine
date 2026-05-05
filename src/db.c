@@ -10,7 +10,8 @@ int exec_sql(sqlite3 *db, const char *sql)
 
     int rc = sqlite3_exec(db, sql, 0, 0, &err);
 
-    if (rc != SQLITE_OK) {
+    if (rc != SQLITE_OK)
+    {
         fprintf(stderr, "SQL error: %s\n", err ? err : "unknown");
         sqlite3_free(err);
     }
@@ -30,62 +31,63 @@ int db_init(sqlite3 *db)
     exec_sql(db, "PRAGMA cache_spill=OFF;");
     exec_sql(db, "PRAGMA wal_autocheckpoint=50000;");
 
-    /* FINAL TABLES */
+    // Final tables
 
+    // Docs
     exec_sql(db,
-        "CREATE TABLE IF NOT EXISTS documents ("
-        "id INTEGER PRIMARY KEY,"
-        "doi TEXT UNIQUE,"
-        "title TEXT,"
-        "abstract TEXT,"
-        "issn TEXT,"
-        "pub_year INTEGER"
-        ");"
-    );
+             "CREATE TABLE IF NOT EXISTS documents ("
+             "id INTEGER PRIMARY KEY,"
+             "doi TEXT UNIQUE,"
+             "title TEXT,"
+             "abstract TEXT,"
+             "issn TEXT,"
+             "pub_year INTEGER"
+             ");");
 
+    // Authors
     exec_sql(db,
-        "CREATE TABLE IF NOT EXISTS authors ("
-        "id INTEGER PRIMARY KEY,"
-        "first_name TEXT,"
-        "last_name TEXT,"
-        "initial TEXT,"
-        "UNIQUE(first_name, last_name, initial)"
-        ");"
-    );
+             "CREATE TABLE IF NOT EXISTS authors ("
+             "id INTEGER PRIMARY KEY,"
+             "first_name TEXT,"
+             "last_name TEXT,"
+             "initial TEXT,"
+             "UNIQUE(first_name, last_name, initial)"
+             ");");
 
+    // Docs-authors relations
     exec_sql(db,
-        "CREATE TABLE IF NOT EXISTS documents_x_authors ("
-        "document_id INTEGER NOT NULL,"
-        "author_id INTEGER NOT NULL,"
-        "author_order INTEGER,"
-        "PRIMARY KEY(document_id, author_id)"
-        ");"
-    );
+             "CREATE TABLE IF NOT EXISTS documents_x_authors ("
+             "document_id INTEGER NOT NULL,"
+             "author_id INTEGER NOT NULL,"
+             "author_order INTEGER,"
+             "PRIMARY KEY(document_id, author_id)"
+             ");");
 
-    /* NGRAMS */
+    // Ngrams
     exec_sql(db,
-        "CREATE TABLE IF NOT EXISTS ngrams ("
-        "gram TEXT NOT NULL,"
-        "doc_id INTEGER NOT NULL"
-        ");"
-    );
+             "CREATE TABLE IF NOT EXISTS ngrams ("
+             "gram TEXT NOT NULL,"
+             "doc_id INTEGER NOT NULL"
+             ");");
 
     /* INDEXES */
 
+    // Author-document relations
     exec_sql(db,
-        "CREATE INDEX IF NOT EXISTS idx_doc_auth "
-        "ON documents_x_authors(document_id);"
-    );
+             "CREATE INDEX IF NOT EXISTS idx_doc_auth "
+             "ON documents_x_authors(document_id);");
 
     exec_sql(db,
-        "CREATE INDEX IF NOT EXISTS idx_auth_doc "
-        "ON documents_x_authors(author_id);"
-    );
+             "CREATE INDEX IF NOT EXISTS idx_auth_doc "
+             "ON documents_x_authors(author_id);");
+    // Ngrams
+    exec_sql(db,
+             "CREATE INDEX IF NOT EXISTS idx_ngrams_gram "
+             "ON ngrams(gram);");
 
     exec_sql(db,
-        "CREATE INDEX IF NOT EXISTS idx_ngrams_gram "
-        "ON ngrams(gram);"
-    );
+             "CREATE INDEX IF NOT EXISTS idx_ngrams_doc "
+             "ON ngrams(doc_id);");
 
     return SQLITE_OK;
 }

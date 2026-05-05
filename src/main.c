@@ -1,9 +1,13 @@
 #include <stdio.h>
+#include <string.h>
 #include <sqlite3.h>
 
 #include "controller.h"
 #include "db.h"
+#include "ngram.h"
 #include "staging.h"
+#include "metrics.h"
+#include "search.h"
 
 // define db & warehouse paths
 #ifndef DB_PATH
@@ -14,37 +18,60 @@
 #define WAREHOUSE_PATH "./warehouse"
 #endif
 
-int main(void)
+int main(int argc, char **argv)
 {
     AppContext ctx = {0};
 
-    /* --- open DB --- */
-    if (sqlite3_open(DB_PATH, &ctx.db) != SQLITE_OK) {
-        fprintf(stderr, "Cannot open database\n");
-        return 1;
-    }
+metrics_init(&ctx);
+metrics_set_state(&ctx, STATE_INIT);
 
-    /* --- init schema (final tables only) --- */
-    db_init(ctx.db);
+sqlite3_open(DB_PATH, &ctx.db);
+db_init(ctx.db);
 
-    /* --- init staging layer --- */
-    staging_init(ctx.db, &ctx.staging);
+/* INDEX ONLY */
+if (argc > 1 && strcmp(argv[1], "index") == 0)
+{
+    metrics_set_state(&ctx, STATE_PROCESSING_FILE);
 
-    /* --- single large transaction --- */
-    sqlite3_exec(ctx.db, "BEGIN;", 0, 0, 0);
+    build_ngram_index(&ctx, ctx.db);
 
-    /* --- file traversal → processor → staging --- */
-    controller_run(&ctx, WAREHOUSE_PATH);
+    metrics_set_state(&ctx, STATE_DONE);
 
-    /* --- bulk resolve (JOINs + inserts) --- */
-    staging_finalize(ctx.db);
+    metrics_report_final(&ctx);
 
-    /* --- commit everything --- */
-    sqlite3_exec(ctx.db, "COMMIT;", 0, 0, 0);
-
-    /* --- cleanup --- */
-    staging_cleanup(&ctx.staging);
     sqlite3_close(ctx.db);
-
     return 0;
+}
+
+/* INGEST */
+staging_init(ctx.db, &ctx.staging);
+
+metrics_set_state(&ctx, STATE_FS_RUNNING);
+metrics_set_state(&ctx, STATE_PROCESSING_FILE);
+
+sqlite3_exec(ctx.db, "BEGIN;", 0, 0, 0);
+
+controller_run(&ctx, WAREHOUSE_PATH);
+
+sqlite3_exec(ctx.db, "COMMIT;", 0, 0, 0);
+
+/* FLUSH */
+metrics_set_state(&ctx, STATE_FINALIZING);
+
+staging_finalize(&ctx, ctx.db);
+
+/* INDEX */
+metrics_set_state(&ctx, STATE_PROCESSING_FILE);
+
+build_ngram_index(&ctx, ctx.db);
+
+metrics_set_state(&ctx, STATE_DONE);
+
+metrics_report_final(&ctx);
+
+/* SEARCH */
+search_repl(&ctx, ctx.db);
+
+sqlite3_close(ctx.db);
+return 0;
 }

@@ -1,11 +1,10 @@
 #include <stdio.h>
 #include <time.h>
+#include <string.h>
 
 #include "metrics.h"
 #include "app_context.h"
 
-/* -------------------------------------------------- */
-/* helpers                                            */
 /* -------------------------------------------------- */
 
 static double sec_diff(struct timespec a, struct timespec b)
@@ -20,33 +19,22 @@ static void now(struct timespec *t)
 }
 
 /* -------------------------------------------------- */
-/* init                                               */
-/* -------------------------------------------------- */
 
 void metrics_init(AppContext *ctx)
 {
-    ctx->files_processed = 0;
-    ctx->parse_errors = 0;
-    ctx->read_errors = 0;
+    memset(&ctx->ingest, 0, sizeof(ctx->ingest));
+    memset(&ctx->index, 0, sizeof(ctx->index));
+    memset(&ctx->search, 0, sizeof(ctx->search));
 
-    ctx->insert_ok = 0;
-    ctx->insert_errors = 0;
+    ctx->index.grams_inserted = 0;
+    ctx->index.grams_generated = 0;
+    ctx->index.docs_indexed = 0;
+    ctx->index.indexing_time = 0.0;
 
-    ctx->tx_files_since_commit = 0;
-
-    ctx->doc_ops = 0;
-    ctx->author_ops = 0;
-    ctx->rel_ops = 0;
-    ctx->rel_batches = 0;
-
-    now(&ctx->metrics.global_start);
-    now(&ctx->metrics.last_sample);
-
-    ctx->metrics.last_files = 0;
+    ctx->search.queries = 0;
+    ctx->search.total_query_time = 0.0;
 }
 
-/* -------------------------------------------------- */
-/* state tracking                                     */
 /* -------------------------------------------------- */
 
 static const char *state_str(PipelineState s)
@@ -67,45 +55,28 @@ void metrics_set_state(AppContext *ctx, PipelineState s)
 {
     ctx->state = s;
 
-    printf("[STATE] %s files=%d docs=%d rel=%d\n",
+    printf("[STATE] %s files=%ld docs=%ld rel=%ld grams=%ld\n",
         state_str(s),
-        ctx->files_processed,
-        ctx->doc_ops,
-        ctx->rel_ops
+        ctx->ingest.files_processed,
+        ctx->ingest.doc_ops,
+        ctx->ingest.rel_ops,
+        ctx->index.grams_generated
     );
 }
 
 /* -------------------------------------------------- */
-/* per-file hook                                     */
-/* -------------------------------------------------- */
 
 void metrics_on_file(AppContext *ctx)
 {
-    /* lightweight sampling every ~1000 files */
-    if (ctx->files_processed % 1000 != 0)
+    if (ctx->ingest.files_processed % 1000 != 0)
         return;
-
-    struct timespec now_t;
-    now(&now_t);
-
-    double dt = sec_diff(ctx->metrics.last_sample, now_t);
-    if (dt <= 0)
-        return;
-
-    long df = ctx->files_processed - ctx->metrics.last_files;
 
     printf("\n--- SNAPSHOT ---\n");
-    printf("files/sec      : %.2f\n", df / dt);
-    printf("total files    : %d\n", ctx->files_processed);
-    printf("parse errors   : %d\n", ctx->parse_errors);
-    printf("state          : %d\n\n", ctx->state);
-
-    ctx->metrics.last_sample = now_t;
-    ctx->metrics.last_files = ctx->files_processed;
+    printf("files processed : %ld\n", ctx->ingest.files_processed);
+    printf("parse errors    : %ld\n", ctx->ingest.parse_errors);
+    printf("state           : %d\n\n", ctx->state);
 }
 
-/* -------------------------------------------------- */
-/* commit timing                                     */
 /* -------------------------------------------------- */
 
 void metrics_on_commit(AppContext *ctx,
@@ -114,54 +85,36 @@ void metrics_on_commit(AppContext *ctx,
 {
     double sec = sec_diff(*start, *end);
 
-    printf("[COMMIT] %.6f sec | files read=%d | docs per batch=%d | rel=%d\n",
+    printf("[COMMIT] %.6f sec | files=%ld | docs=%ld | rel=%ld\n",
         sec,
-        ctx->tx_files_since_commit,
-        ctx->doc_ops,
-        ctx->rel_ops
+        ctx->ingest.tx_files_since_commit,
+        ctx->ingest.doc_ops,
+        ctx->ingest.rel_ops
     );
 }
 
 /* -------------------------------------------------- */
-/* tx reset                                          */
-/* -------------------------------------------------- */
 
 void metrics_reset_tx(AppContext *ctx)
 {
-    ctx->tx_files_since_commit = 0;
-    ctx->doc_ops = 0;
-    ctx->author_ops = 0;
-    ctx->rel_ops = 0;
-    ctx->rel_batches = 0;
+    ctx->ingest.tx_files_since_commit = 0;
+    ctx->ingest.doc_ops = 0;
+    ctx->ingest.author_ops = 0;
+    ctx->ingest.rel_ops = 0;
 }
 
-/* -------------------------------------------------- */
-/* final report                                      */
 /* -------------------------------------------------- */
 
 void metrics_report_final(AppContext *ctx)
 {
-    struct timespec end;
-    now(&end);
-
-    double total = sec_diff(ctx->metrics.global_start, end);
-
-    double fsec = ctx->files_processed / total;
-
     printf("\n================ FINAL REPORT ================\n");
 
-    printf("Files processed : %d\n", ctx->files_processed);
-    printf("Parse errors    : %d\n", ctx->parse_errors);
-    printf("Read errors     : %d\n\n", ctx->read_errors);
+    printf("INGEST:\n");
+    printf("  files processed : %ld\n", ctx->ingest.files_processed);
+    printf("  parse errors    : %ld\n", ctx->ingest.parse_errors);
+    printf("  doc ops         : %ld\n", ctx->ingest.total_doc_ops);
+    printf("  author ops      : %ld\n", ctx->ingest.total_author_ops);
+    printf("  rel ops         : %ld\n\n", ctx->ingest.total_rel_ops);
 
-    printf("Throughput      : %.2f files/sec\n", fsec);
-    printf("Total time      : %.2f sec\n\n", total);
-
-    printf("DB ops:\n");
-    printf("  docs ops     : %d\n", ctx->total_doc_ops);
-    printf("  author ops   : %d\n", ctx->total_author_ops);
-    printf("  rel ops      : %d\n\n", ctx->total_rel_ops);
-
-    printf("Transactions   : %d files/tx\n", ctx->tx_files_since_commit);
     printf("=============================================\n");
 }

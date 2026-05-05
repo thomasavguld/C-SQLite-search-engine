@@ -1,7 +1,14 @@
 #include <stdio.h>
 #include <sqlite3.h>
 
-void staging_finalize(sqlite3 *db)
+#include "app_context.h"
+
+#include <stdio.h>
+#include <sqlite3.h>
+
+#include "app_context.h"
+
+void staging_finalize(AppContext *ctx, sqlite3 *db)
 {
     int rc;
     char *err = NULL;
@@ -14,10 +21,17 @@ void staging_finalize(sqlite3 *db)
         "FROM stg_authors;",
         NULL, NULL, &err);
 
-    if (rc != SQLITE_OK) {
+    if (rc != SQLITE_OK)
+    {
         fprintf(stderr, "[AUTHORS] %s\n", err);
         sqlite3_free(err);
         err = NULL;
+
+        ctx->insert_errors++;
+    }
+    else
+    {
+        ctx->total_author_ops += sqlite3_changes(db);
     }
 
     /* -------------------- DOCUMENTS ------------------ */
@@ -25,14 +39,20 @@ void staging_finalize(sqlite3 *db)
     rc = sqlite3_exec(db,
         "INSERT OR IGNORE INTO documents(doi, title, abstract, issn, pub_year) "
         "SELECT doi, title, abstract, issn, pub_year "
-        "FROM stg_documents "
-        "ON CONFLICT(doi) DO NOTHING;",
+        "FROM stg_documents;",
         NULL, NULL, &err);
 
-    if (rc != SQLITE_OK) {
+    if (rc != SQLITE_OK)
+    {
         fprintf(stderr, "[DOCUMENTS] %s\n", err);
         sqlite3_free(err);
         err = NULL;
+
+        ctx->insert_errors++;
+    }
+    else
+    {
+        ctx->total_doc_ops += sqlite3_changes(db);
     }
 
     /* -------------------- RELATIONS ------------------ */
@@ -47,17 +67,22 @@ void staging_finalize(sqlite3 *db)
         "               AND a.initial    = r.initial;",
         NULL, NULL, &err);
 
-    if (rc != SQLITE_OK) {
+    if (rc != SQLITE_OK)
+    {
         fprintf(stderr, "[RELATIONS] %s\n", err);
         sqlite3_free(err);
         err = NULL;
+
+        ctx->insert_errors++;
     }
-/*
-// Clean
+    else
+    {
+        ctx->total_rel_ops += sqlite3_changes(db);
+    }
+
+    /* -------------------- CLEAN ---------------------- */
 
     sqlite3_exec(db, "DELETE FROM stg_documents;", NULL, NULL, NULL);
     sqlite3_exec(db, "DELETE FROM stg_authors;", NULL, NULL, NULL);
     sqlite3_exec(db, "DELETE FROM stg_doc_authors;", NULL, NULL, NULL);
-*/
-
 }

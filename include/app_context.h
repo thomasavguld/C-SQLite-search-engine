@@ -8,7 +8,7 @@
 #include "pipeline.h"
 
 /* -------------------------------------------------- */
-/* metrics runtime                                   */
+/* runtime metrics (pipeline + sampling)              */
 /* -------------------------------------------------- */
 
 typedef struct {
@@ -16,9 +16,6 @@ typedef struct {
     struct timespec last_sample;
 
     long last_files;
-
-    long last_docs;
-    long last_inserts;
 
     double fs_time;
     double stage_time;
@@ -29,7 +26,52 @@ typedef struct {
     long db_commits;
 
     double last_commit_ms;
-} MetricsRuntime;
+} metricsRuntime;
+
+/* -------------------------------------------------- */
+/* INGEST METRICS                                    */
+/* -------------------------------------------------- */
+
+typedef struct {
+    long files_processed;
+    long parse_errors;
+    long read_errors;
+
+    long insert_ok;
+    long insert_errors;
+
+    long doc_ops;
+    long author_ops;
+    long rel_ops;
+    long rel_batches;
+
+    long tx_files_since_commit;
+    long tx_limit;
+
+    long total_doc_ops;
+    long total_author_ops;
+    long total_rel_ops;
+} ingestMetrics;
+
+/* -------------------------------------------------- */
+/* INDEX (NGRAM) METRICS                             */
+/* -------------------------------------------------- */
+
+typedef struct {
+    long grams_inserted;
+    long grams_generated;
+    long docs_indexed;
+    double indexing_time;
+} indexMetrics;
+
+/* -------------------------------------------------- */
+/* SEARCH METRICS                                    */
+/* -------------------------------------------------- */
+
+typedef struct {
+    double total_query_time;
+    long queries;
+} searchMetrics;
 
 /* -------------------------------------------------- */
 /* main application context                          */
@@ -59,42 +101,14 @@ typedef struct AppContext {
     /* =========================
      * metrics
      * ========================= */
-    MetricsRuntime metrics;
+    metricsRuntime runtime;
+
+    ingestMetrics ingest;
+    indexMetrics index;
+    searchMetrics search;
 
     /* =========================
-     * file processing counters
-     * ========================= */
-    int files_processed;
-    int parse_errors;
-    int read_errors;
-
-    /* =========================
-     * database insert stats
-     * ========================= */
-    int insert_ok;
-    int insert_errors;
-
-    /* =========================
-     * relational stats
-     * ========================= */
-    int doc_ops;
-    int author_ops;
-    int rel_ops;
-    int rel_batches;
-
-    /* =========================
-     * transaction control
-     * ========================= */
-    int tx_files_since_commit;
-    int tx_limit;
-
-    // Totals
-    long total_doc_ops;
-    long total_author_ops;
-    long total_rel_ops;
-
-    /* =========================
-     * timing (raw profiling)
+     * timing (optional profiling hooks)
      * ========================= */
     struct timespec start_time;
     struct timespec end_time;

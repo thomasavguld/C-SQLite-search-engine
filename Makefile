@@ -9,6 +9,8 @@ SRC = src/main.c \
       src/metrics.c \
       src/db.c \
       src/fs.c \
+      src/search.c \
+      src/ngram.c \
       external/yyjson/src/yyjson.c
 
 # build objects into build/
