@@ -110,7 +110,7 @@ static void file_callback_controller(const char *path, void *userdata)
 
 void controller_run(AppContext *ctx, const char *root)
 {
-    printf("\n[INGEST] START DOCUMENT INGEST\n");
+    printf("\n[INGEST] START DOCUMENT INGEST. WAIT... (This can take a while)\n");
 
     metrics_init(ctx);
     metrics_set_state(ctx, STATE_FS_RUNNING);

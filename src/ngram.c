@@ -115,7 +115,7 @@ void build_ngram_index(AppContext *ctx,
         return;
     }
     printf("\n\n");
-    printf("[INDEX] INDEX BUILD START\n");
+    printf("[INDEX] INDEX BUILD START. WAIT... (This can take a while)\n");
 
     struct timespec t0, t1;
 clock_gettime(CLOCK_MONOTONIC, &t0);
@@ -190,8 +190,11 @@ void search_query(AppContext *ctx,
     }
 
     char sql[1024] =
-        "SELECT doc_id, COUNT(*) AS hits "
-        "FROM ngrams WHERE gram IN (";
+    "SELECT d.id, d.title, d.abstract, "
+    "COUNT(*) AS hits "
+    "FROM ngrams n "
+    "JOIN documents d ON d.id = n.doc_id "
+    "WHERE n.gram IN (";
 
     for (int i = 0; i < gcount; i++)
     {
@@ -224,9 +227,13 @@ void search_query(AppContext *ctx,
     while (sqlite3_step(stmt) == SQLITE_ROW)
     {
         int doc_id = sqlite3_column_int(stmt, 0);
-        int hits = sqlite3_column_int(stmt, 1);
+        const char *title = (const char*)sqlite3_column_text(stmt, 1);
+        const char *abstract = (const char*)sqlite3_column_text(stmt, 2);
+        int hits = sqlite3_column_int(stmt, 3);
 
-        printf("Doc %d (hits=%d)\n", doc_id, hits);
+        printf("\nDoc %d (hits=%d)\n", doc_id, hits);
+        printf("Title: %s\n", title ? title : "(null)");
+        printf("Abstract: %.120s\n", abstract ? abstract : "");
     }
 
     sqlite3_finalize(stmt);

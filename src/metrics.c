@@ -70,8 +70,8 @@ void metrics_set_state(AppContext *ctx, PipelineState s)
 
 void metrics_on_file(AppContext *ctx)
 {
-    if (ctx->ingest.files_processed % 1000 != 0)
-        return;
+    //if (ctx->ingest.files_processed % 1000 != 0)
+    //    return;
 
         printf("\r[INGEST] files: %ld errors: %ld docs: %ld rel: %ld",
             ctx->ingest.files_processed,

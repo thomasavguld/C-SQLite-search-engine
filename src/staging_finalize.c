@@ -13,7 +13,7 @@ void staging_finalize(AppContext *ctx, sqlite3 *db)
     int rc;
     char *err = NULL;
 
-    /* -------------------- AUTHORS -------------------- */
+    //Authors
 
     rc = sqlite3_exec(db,
         "INSERT OR IGNORE INTO authors(first_name, last_name, initial) "
@@ -27,14 +27,14 @@ void staging_finalize(AppContext *ctx, sqlite3 *db)
         sqlite3_free(err);
         err = NULL;
 
-        ctx->insert_errors++;
+        ctx->ingest.insert_errors++;
     }
     else
     {
-        ctx->total_author_ops += sqlite3_changes(db);
+        ctx->ingest.total_author_ops += sqlite3_changes(db);
     }
 
-    /* -------------------- DOCUMENTS ------------------ */
+    //Documents
 
     rc = sqlite3_exec(db,
         "INSERT OR IGNORE INTO documents(doi, title, abstract, issn, pub_year) "
@@ -48,14 +48,14 @@ void staging_finalize(AppContext *ctx, sqlite3 *db)
         sqlite3_free(err);
         err = NULL;
 
-        ctx->insert_errors++;
+        ctx->ingest.insert_errors++;
     }
     else
     {
-        ctx->total_doc_ops += sqlite3_changes(db);
+        ctx->ingest.total_doc_ops += sqlite3_changes(db);
     }
 
-    /* -------------------- RELATIONS ------------------ */
+    // Relations
 
     rc = sqlite3_exec(db,
         "INSERT OR IGNORE INTO documents_x_authors(document_id, author_id, author_order) "
@@ -73,14 +73,14 @@ void staging_finalize(AppContext *ctx, sqlite3 *db)
         sqlite3_free(err);
         err = NULL;
 
-        ctx->insert_errors++;
+        ctx->ingest.insert_errors++;
     }
     else
     {
-        ctx->total_rel_ops += sqlite3_changes(db);
+        ctx->ingest.total_rel_ops += sqlite3_changes(db);
     }
 
-    /* -------------------- CLEAN ---------------------- */
+    // Clean
 
     sqlite3_exec(db, "DELETE FROM stg_documents;", NULL, NULL, NULL);
     sqlite3_exec(db, "DELETE FROM stg_authors;", NULL, NULL, NULL);
