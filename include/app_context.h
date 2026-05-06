@@ -51,6 +51,8 @@ typedef struct {
     long total_doc_ops;
     long total_author_ops;
     long total_rel_ops;
+
+    double ingestion_time_sec;
 } ingestMetrics;
 
 /* -------------------------------------------------- */

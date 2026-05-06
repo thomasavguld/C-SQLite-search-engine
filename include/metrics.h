@@ -16,8 +16,8 @@ void metrics_on_commit(AppContext *ctx,
 
 void metrics_reset_tx(AppContext *ctx);
 
-void metrics_report_tx(AppContext *ctx);
+void metrics_report_ingest(AppContext *ctx);
 
-void metrics_report_final(AppContext *ctx);
+void metrics_report_index(AppContext *ctx);
 
 #endif

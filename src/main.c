@@ -8,8 +8,8 @@
 #include "staging.h"
 #include "metrics.h"
 #include "search.h"
+#include "app_context.h"
 
-// define db & warehouse paths
 #ifndef DB_PATH
 #define DB_PATH "./db/c_search.db"
 #endif
@@ -22,56 +22,54 @@ int main(int argc, char **argv)
 {
     AppContext ctx = {0};
 
-metrics_init(&ctx);
-metrics_set_state(&ctx, STATE_INIT);
+    if (sqlite3_open(DB_PATH, &ctx.db) != SQLITE_OK) {
+        printf("DB open failed\n");
+        return 1;
+    }
 
-sqlite3_open(DB_PATH, &ctx.db);
-db_init(ctx.db);
+    db_init(ctx.db);
 
-/* INDEX ONLY */
-if (argc > 1 && strcmp(argv[1], "index") == 0)
-{
-    metrics_set_state(&ctx, STATE_PROCESSING_FILE);
+   // File ingestion
+   
+    if (argc > 1 && strcmp(argv[1], "ingest") == 0)
+    {
+        staging_init(ctx.db, &ctx.staging);
 
-    build_ngram_index(&ctx, ctx.db);
+        metrics_init(&ctx);
+        metrics_set_state(&ctx, STATE_FS_RUNNING);
 
-    metrics_set_state(&ctx, STATE_DONE);
+        controller_run(&ctx, WAREHOUSE_PATH);
 
-    metrics_report_final(&ctx);
+        sqlite3_close(ctx.db);
+        return 0;
+    }
+
+    // Index nGrams
+
+    if (argc > 1 && strcmp(argv[1], "index") == 0)
+    {
+        metrics_init(&ctx);
+        metrics_set_state(&ctx, STATE_PROCESSING_FILE);
+
+        build_ngram_index(&ctx, ctx.db);
+        
+        metrics_set_state(&ctx, STATE_DONE);
+        metrics_report_index(&ctx);
+
+        sqlite3_close(ctx.db);
+        return 0;
+    }
+
+    // Search 
+
+    if (argc > 1 && strcmp(argv[1], "search") == 0)
+    {
+        search_repl(&ctx, ctx.db);
+
+        sqlite3_close(ctx.db);
+        return 0;
+    }
 
     sqlite3_close(ctx.db);
     return 0;
-}
-
-/* INGEST */
-staging_init(ctx.db, &ctx.staging);
-
-metrics_set_state(&ctx, STATE_FS_RUNNING);
-metrics_set_state(&ctx, STATE_PROCESSING_FILE);
-
-sqlite3_exec(ctx.db, "BEGIN;", 0, 0, 0);
-
-controller_run(&ctx, WAREHOUSE_PATH);
-
-sqlite3_exec(ctx.db, "COMMIT;", 0, 0, 0);
-
-/* FLUSH */
-metrics_set_state(&ctx, STATE_FINALIZING);
-
-staging_finalize(&ctx, ctx.db);
-
-/* INDEX */
-metrics_set_state(&ctx, STATE_PROCESSING_FILE);
-
-build_ngram_index(&ctx, ctx.db);
-
-metrics_set_state(&ctx, STATE_DONE);
-
-metrics_report_final(&ctx);
-
-/* SEARCH */
-search_repl(&ctx, ctx.db);
-
-sqlite3_close(ctx.db);
-return 0;
 }

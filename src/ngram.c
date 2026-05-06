@@ -84,9 +84,7 @@ void ngram_index_document(AppContext *ctx,
 
 void build_ngram_index(AppContext *ctx,
                        sqlite3 *db)
-{   printf(">>> BUILD_NGRAM_INDEX CALLED <<<\n");
-    fflush(stdout);
-
+{ 
     sqlite3_stmt *select_stmt;
     sqlite3_stmt *insert_stmt;
 
@@ -112,12 +110,12 @@ void build_ngram_index(AppContext *ctx,
 
     if (rc != SQLITE_OK)
     {
-        printf("INSERT prepare failed: %s\n", sqlite3_errmsg(db));
+        printf("[INSERT] prepare failed: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(select_stmt);
         return;
     }
-
-    printf("BUILD INDEX START\n");
+    printf("\n\n");
+    printf("[INDEX] INDEX BUILD START\n");
 
     struct timespec t0, t1;
 clock_gettime(CLOCK_MONOTONIC, &t0);
@@ -140,20 +138,15 @@ clock_gettime(CLOCK_MONOTONIC, &t0);
         ngram_index_document(ctx, insert_stmt, id, abstract);
 
         count++;
-
-        printf("DOC ID: %d\n", id);
-
-        if (count % 1000 == 0)
-    {
-        printf("[INDEX] docs=%d grams=%ld inserted=%ld\n",
-               count,
-               ctx->index.grams_generated,
-               ctx->index.grams_inserted);
+        
+        printf("\r[INDEX] docs: %d grams: %ld",
+            count,
+            ctx->index.grams_generated
+        );
         fflush(stdout);
-    }
-
-    }
-
+}
+    printf("\n[INDEX] FINALIZING INDEX. WAIT...\n");
+    
     sqlite3_exec(db, "COMMIT;", 0, 0, 0);
 
     sqlite3_finalize(select_stmt);
@@ -168,28 +161,19 @@ clock_gettime(CLOCK_MONOTONIC, &t0);
 
     ctx->index.indexing_time = dt;
 
-        printf("\n[INDEX DONE]\n");
-        printf("time           : %.3f sec\n", dt);
-        printf("docs           : %d\n", count);
-        printf("grams generated: %ld\n", ctx->index.grams_generated);
-        printf("grams inserted : %ld\n", ctx->index.grams_inserted);
+    ctx->index.docs_indexed = count;
+    ctx->index.indexing_time = dt;
+  
 }
 
-/* -------------------------------------------------- */
-/* search                                             */
-/* -------------------------------------------------- */
+// SEARCH
 
 void search_query(AppContext *ctx,
                   sqlite3 *db,
                   const char *query)
 {
-    struct timespec t0, t1;
-    clock_gettime(CLOCK_MONOTONIC, &t0);
-
     if (!query || strlen(query) < 3)
         return;
-
-    ctx->search.queries++;
 
     size_t len = strlen(query);
 
@@ -246,12 +230,5 @@ void search_query(AppContext *ctx,
     }
 
     sqlite3_finalize(stmt);
-
-    clock_gettime(CLOCK_MONOTONIC, &t1);
-
-    double dt =
-        (t1.tv_sec - t0.tv_sec) +
-        (t1.tv_nsec - t0.tv_nsec) / 1e9;
-
-    ctx->search.total_query_time += dt;
+  
 }

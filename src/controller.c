@@ -110,8 +110,15 @@ static void file_callback_controller(const char *path, void *userdata)
 
 void controller_run(AppContext *ctx, const char *root)
 {
+    printf("\n[INGEST] START DOCUMENT INGEST\n");
+
     metrics_init(ctx);
     metrics_set_state(ctx, STATE_FS_RUNNING);
+
+    struct timespec ingest_start, ingest_end;
+    struct timespec commit_start, commit_end;
+
+    clock_gettime(CLOCK_MONOTONIC, &ingest_start);
 
     ctx->ingest.parse_errors = 0;
     ctx->ingest.insert_errors = 0;
@@ -127,23 +134,28 @@ void controller_run(AppContext *ctx, const char *root)
 
     staging_finalize(ctx, ctx->db);
 
-    struct timespec start, end;
-    clock_gettime(CLOCK_MONOTONIC, &start);
+    // Commit timing
+    clock_gettime(CLOCK_MONOTONIC, &commit_start);
 
     sqlite3_exec(ctx->db, "COMMIT;", NULL, NULL, NULL);
 
-    clock_gettime(CLOCK_MONOTONIC, &end);
+    clock_gettime(CLOCK_MONOTONIC, &commit_end);
 
-    metrics_on_commit(ctx, &start, &end);
+    metrics_on_commit(ctx, &commit_start, &commit_end);
+
+    // Ingestion time
+    clock_gettime(CLOCK_MONOTONIC, &ingest_end);
+
+    ctx->ingest.ingestion_time_sec =
+        (ingest_end.tv_sec - ingest_start.tv_sec) +
+        (ingest_end.tv_nsec - ingest_start.tv_nsec) / 1e9;
 
     metrics_set_state(ctx, STATE_DONE);
 
-    metrics_report_final(ctx);
+    metrics_report_ingest(ctx);
 }
 
-/* -------------------------------------------------- */
-/* COMMIT BATCH                                       */
-/* -------------------------------------------------- */
+// Commit batch
 
 static void do_commit(AppContext *ctx)
 {

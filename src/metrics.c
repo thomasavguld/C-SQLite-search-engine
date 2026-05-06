@@ -55,6 +55,7 @@ void metrics_set_state(AppContext *ctx, PipelineState s)
 {
     ctx->state = s;
 
+    /*
     printf("[STATE] %s files=%ld docs=%ld rel=%ld grams=%ld\n",
         state_str(s),
         ctx->ingest.files_processed,
@@ -62,6 +63,7 @@ void metrics_set_state(AppContext *ctx, PipelineState s)
         ctx->ingest.rel_ops,
         ctx->index.grams_generated
     );
+    */
 }
 
 /* -------------------------------------------------- */
@@ -71,10 +73,13 @@ void metrics_on_file(AppContext *ctx)
     if (ctx->ingest.files_processed % 1000 != 0)
         return;
 
-    printf("\n--- SNAPSHOT ---\n");
-    printf("files processed : %ld\n", ctx->ingest.files_processed);
-    printf("parse errors    : %ld\n", ctx->ingest.parse_errors);
-    printf("state           : %d\n\n", ctx->state);
+        printf("\r[INGEST] files: %ld errors: %ld docs: %ld rel: %ld",
+            ctx->ingest.files_processed,
+            ctx->ingest.parse_errors,
+            ctx->ingest.total_doc_ops,
+            ctx->ingest.total_rel_ops
+        );
+        fflush(stdout);
 }
 
 /* -------------------------------------------------- */
@@ -84,13 +89,15 @@ void metrics_on_commit(AppContext *ctx,
                        struct timespec *end)
 {
     double sec = sec_diff(*start, *end);
-
-    printf("[COMMIT] %.6f sec | files=%ld | docs=%ld | rel=%ld\n",
+/*
+    printf("\r[COMMIT] %.6f sec | files=%ld | docs=%ld | rel=%ld",
         sec,
         ctx->ingest.tx_files_since_commit,
         ctx->ingest.doc_ops,
         ctx->ingest.rel_ops
     );
+
+*/    
 }
 
 /* -------------------------------------------------- */
@@ -105,16 +112,30 @@ void metrics_reset_tx(AppContext *ctx)
 
 /* -------------------------------------------------- */
 
-void metrics_report_final(AppContext *ctx)
-{
-    printf("\n================ FINAL REPORT ================\n");
+void metrics_report_ingest(AppContext *ctx)
+{   
+    printf("\n\n");
+    printf("\n================ DOCUMENT INGEST REPORT ================\n");
 
     printf("INGEST:\n");
     printf("  files processed : %ld\n", ctx->ingest.files_processed);
     printf("  parse errors    : %ld\n", ctx->ingest.parse_errors);
     printf("  doc ops         : %ld\n", ctx->ingest.total_doc_ops);
     printf("  author ops      : %ld\n", ctx->ingest.total_author_ops);
-    printf("  rel ops         : %ld\n\n", ctx->ingest.total_rel_ops);
+    printf("  rel ops         : %ld\n", ctx->ingest.total_rel_ops);
+    printf("  time            : %.3f sec\n", ctx->ingest.ingestion_time_sec);
+    printf("=============================================\n\n");
+}
 
-    printf("=============================================\n");
+void metrics_report_index(AppContext *ctx)
+{   
+    printf("\n================ NGRAM INDEX REPORT =================\n");
+
+    printf("INDEX:\n");
+    printf("  docs indexed    : %ld\n", ctx->index.docs_indexed);
+    printf("  grams generated : %ld\n", ctx->index.grams_generated);
+    printf("  grams inserted  : %ld\n", ctx->index.grams_inserted);
+    printf("  time            : %.3f sec\n", ctx->index.indexing_time);
+
+    printf("=============================================\n\n");
 }
