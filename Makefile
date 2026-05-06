@@ -11,6 +11,7 @@ SRC = src/main.c \
       src/fs.c \
       src/search.c \
       src/ngram.c \
+      src/doc_view.c \
       external/yyjson/src/yyjson.c
 
 # build objects into build/

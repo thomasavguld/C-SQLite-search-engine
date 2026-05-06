@@ -222,19 +222,21 @@ void search_query(AppContext *ctx,
                           grams[i], -1, SQLITE_TRANSIENT);
     }
 
-    printf("Results:\n");
+    int i = 1;
 
-    while (sqlite3_step(stmt) == SQLITE_ROW)
-    {
-        int doc_id = sqlite3_column_int(stmt, 0);
-        const char *title = (const char*)sqlite3_column_text(stmt, 1);
-        const char *abstract = (const char*)sqlite3_column_text(stmt, 2);
-        int hits = sqlite3_column_int(stmt, 3);
+while (sqlite3_step(stmt) == SQLITE_ROW)
+{
+    int doc_id = sqlite3_column_int(stmt, 0);
+    const char *title = (const char*)sqlite3_column_text(stmt, 1);
+    const char *abstract = (const char*)sqlite3_column_text(stmt, 2);
+    int hits = sqlite3_column_int(stmt, 3);
 
-        printf("\nDoc %d (hits=%d)\n", doc_id, hits);
-        printf("Title: %s\n", title ? title : "(null)");
-        printf("Abstract: %.120s\n", abstract ? abstract : "");
-    }
+    printf("\n-- [%d] Document ID: %d (Hits: %d) Open -> %d -- \n",
+           i++, doc_id, hits, doc_id);
+
+    printf("Title: %s\n", title ? title : "(null)");
+    printf("Abstract: %.120s\n", abstract ? abstract : "");
+}
 
     sqlite3_finalize(stmt);
   

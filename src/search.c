@@ -4,6 +4,7 @@
 #include <sqlite3.h>
 #include <time.h>
 
+#include "doc_view.h"
 #include "ngram.h"
 #include "app_context.h"
 
@@ -11,6 +12,8 @@
 
 static void run_search(AppContext *ctx, sqlite3 *db, const char *query)
 {
+    printf("Wait. Searching...\n");
+    
     struct timespec t0, t1;
 
     clock_gettime(CLOCK_MONOTONIC, &t0);
@@ -23,6 +26,9 @@ static void run_search(AppContext *ctx, sqlite3 *db, const char *query)
                 (t1.tv_nsec - t0.tv_nsec) / 1e9;
 
     printf("\nSearch latency: %.3f ms\n\n", dt * 1000.0);
+    printf("* To open full document, type 'open [document id]'\n");
+    printf("* To search new document, type query\n");
+    printf("* To exit, type '/exit' or press ctrl+c\n\n");
 }
 
 
@@ -30,28 +36,54 @@ void search_repl(AppContext *ctx, sqlite3 *db)
 {
     char buf[512];
 
-    printf("\n=== SEARCH MODE ===\n");
-    printf("Type query (or 'exit' to exit):\n");
+    printf("\n================ DOCUMENT SEARCH =================\n");
+    printf("[SEARCH] Type query (or '/exit' to exit):\n\n");
 
     while (1)
+{
+    printf("> ");
+    fflush(stdout);
+
+    if (!fgets(buf, sizeof(buf), stdin))
+        break;
+
+    buf[strcspn(buf, "\n")] = 0;
+
+    /* trim trailing spaces */
+    int len = strlen(buf);
+    while (len > 0 && buf[len - 1] == ' ')
     {
-        printf("> ");
-        fflush(stdout);
-
-        if (!fgets(buf, sizeof(buf), stdin))
-            break;
-
-        buf[strcspn(buf, "\n")] = 0;
-
-        if (strcmp(buf, "exit") == 0)
-            break;
-
-        if (strlen(buf) < 3)
-        {
-            printf("Too short\n");
-            continue;
-        }
-
-        run_search(ctx, db, buf);
+        buf[len - 1] = 0;
+        len--;
     }
+
+    /* trim leading spaces */
+    while (buf[0] == ' ')
+        memmove(buf, buf + 1, strlen(buf));
+
+    /* ignore empty input */
+    if (buf[0] == '\0')
+        continue;
+
+    /* exit */
+    if (strcmp(buf, "/exit") == 0)
+        break;
+
+    /* open document */
+    if (strncmp(buf, "open ", 5) == 0)
+    {
+        int id = atoi(buf + 5);
+        open_doc(db, id);
+        continue;
+    }
+
+    /* search guard */
+    if (strlen(buf) < 3)
+    {
+        printf("Too short\n");
+        continue;
+    }
+
+    run_search(ctx, db, buf);
+}
 }
