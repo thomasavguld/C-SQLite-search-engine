@@ -6,9 +6,19 @@
 #include "app_context.h"
 #include "ngram.h"
 
-/* -------------------------------------------------- */
-/* normalization                                      */
-/* -------------------------------------------------- */
+static void format_time(double sec)
+{
+    int hours = (int)(sec / 3600);
+    int minutes = ((int)sec % 3600) / 60;
+    int seconds = (int)sec % 60;
+
+    printf("%02dh %02dm %02ds",
+        hours,
+        minutes,
+        seconds);
+}
+
+//Normalization
 
 static inline char norm(char c)
 {
@@ -17,9 +27,7 @@ static inline char norm(char c)
     return c;
 }
 
-/* -------------------------------------------------- */
-/* insert helper                                      */
-/* -------------------------------------------------- */
+//Insert helper
 
 static void insert_gram(AppContext *ctx,
   sqlite3_stmt *stmt,
@@ -78,92 +86,101 @@ void ngram_index_document(AppContext *ctx,
     ctx->index.grams_generated += local_grams;
 }
 
-/* -------------------------------------------------- */
-/* build index                                        */
-/* -------------------------------------------------- */
+
 
 void build_ngram_index(AppContext *ctx,
-                       sqlite3 *db)
-{ 
-    sqlite3_stmt *select_stmt;
-    sqlite3_stmt *insert_stmt;
+    sqlite3 *db)
+{
+sqlite3_stmt *select_stmt;
+sqlite3_stmt *insert_stmt;
 
-    int rc;
+int rc;
 
-    rc = sqlite3_prepare_v2(db,
-                            "SELECT id, title, abstract FROM documents;",
-                            -1,
-                            &select_stmt,
-                            NULL);
+rc = sqlite3_prepare_v2(db,
+"SELECT id, title, abstract FROM documents;",
+-1,
+&select_stmt,
+NULL);
 
-    if (rc != SQLITE_OK)
-    {
-        printf("SELECT prepare failed: %s\n", sqlite3_errmsg(db));
-        return;
-    }
-
-    rc = sqlite3_prepare_v2(db,
-                            "INSERT INTO ngrams (gram, doc_id) VALUES (?, ?);",
-                            -1,
-                            &insert_stmt,
-                            NULL);
-
-    if (rc != SQLITE_OK)
-    {
-        printf("[INSERT] prepare failed: %s\n", sqlite3_errmsg(db));
-        sqlite3_finalize(select_stmt);
-        return;
-    }
-    printf("\n\n");
-    printf("[INDEX] INDEX BUILD START. WAIT... (This can take a while)\n");
-
-    struct timespec t0, t1;
-clock_gettime(CLOCK_MONOTONIC, &t0);
-
-    sqlite3_exec(db, "BEGIN;", 0, 0, 0);
-
-    int count = 0;
-
-    while (sqlite3_step(select_stmt) == SQLITE_ROW)
-    {
-        int id = sqlite3_column_int(select_stmt, 0);
-
-        const char *title =
-            (const char *)sqlite3_column_text(select_stmt, 1);
-
-        const char *abstract =
-            (const char *)sqlite3_column_text(select_stmt, 2);
-
-        ngram_index_document(ctx, insert_stmt, id, title);
-        ngram_index_document(ctx, insert_stmt, id, abstract);
-
-        count++;
-        
-        printf("\r[INDEX] docs: %d grams: %ld",
-            count,
-            ctx->index.grams_generated
-        );
-        fflush(stdout);
+if (rc != SQLITE_OK)
+{
+printf("SELECT prepare failed: %s\n", sqlite3_errmsg(db));
+return;
 }
-    printf("\n[INDEX] FINALIZING INDEX. WAIT...\n");
-    
-    sqlite3_exec(db, "COMMIT;", 0, 0, 0);
 
-    sqlite3_finalize(select_stmt);
-    sqlite3_finalize(insert_stmt);
+rc = sqlite3_prepare_v2(db,
+"INSERT INTO ngrams (gram, doc_id) VALUES (?, ?);",
+-1,
+&insert_stmt,
+NULL);
 
-    ctx->index.docs_indexed = count;
+if (rc != SQLITE_OK)
+{
+printf("[INSERT] prepare failed: %s\n", sqlite3_errmsg(db));
+sqlite3_finalize(select_stmt);
+return;
+}
 
-    clock_gettime(CLOCK_MONOTONIC, &t1);
+printf("\n[INDEX] INDEX BUILD START\n");
+printf("[INDEX] PLEASE WAIT... (If this is the first run - expect it to take a while)\n");
 
-    double dt = (t1.tv_sec - t0.tv_sec) +
-    (t1.tv_nsec - t0.tv_nsec) / 1e9;
+/* START TIMER (KORREKT: ctx) */
+clock_gettime(CLOCK_MONOTONIC, &ctx->runtime.index_start);
 
-    ctx->index.indexing_time = dt;
+sqlite3_exec(db, "BEGIN;", 0, 0, 0);
 
-    ctx->index.docs_indexed = count;
-    ctx->index.indexing_time = dt;
-  
+int count = 0;
+
+while (sqlite3_step(select_stmt) == SQLITE_ROW)
+{
+int id = sqlite3_column_int(select_stmt, 0);
+
+const char *title =
+(const char *)sqlite3_column_text(select_stmt, 1);
+
+const char *abstract =
+(const char *)sqlite3_column_text(select_stmt, 2);
+
+ngram_index_document(ctx, insert_stmt, id, title);
+ngram_index_document(ctx, insert_stmt, id, abstract);
+
+count++;
+
+/* live elapsed */
+struct timespec now;
+clock_gettime(CLOCK_MONOTONIC, &now);
+
+double elapsed =
+(now.tv_sec - ctx->runtime.index_start.tv_sec) +
+(now.tv_nsec - ctx->runtime.index_start.tv_nsec) / 1e9;
+
+printf("\r[INDEX] docs: %d grams: %ld time: ",
+count,
+ctx->index.grams_generated
+);
+
+format_time(elapsed);
+
+fflush(stdout);
+}
+
+printf("\n[INDEX] FINALIZING INDEX\n");
+printf("[INDEX] PLEASE WAIT...\n");
+
+sqlite3_exec(db, "COMMIT;", 0, 0, 0);
+
+sqlite3_finalize(select_stmt);
+sqlite3_finalize(insert_stmt);
+
+/* FINAL METRICS */
+ctx->index.docs_indexed = count;
+
+struct timespec end;
+clock_gettime(CLOCK_MONOTONIC, &end);
+
+ctx->index.indexing_time =
+(end.tv_sec - ctx->runtime.index_start.tv_sec) +
+(end.tv_nsec - ctx->runtime.index_start.tv_nsec) / 1e9;
 }
 
 // SEARCH

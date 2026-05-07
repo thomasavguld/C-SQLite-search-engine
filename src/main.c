@@ -18,6 +18,19 @@
 #define WAREHOUSE_PATH "./warehouse"
 #endif
 
+static int ask(const char *msg)
+{
+    char buf[16];
+
+    printf("%s (y/n + enter): ", msg);
+    fflush(stdout);
+
+    if (!fgets(buf, sizeof(buf), stdin))
+        return 0;
+
+    return (buf[0] == 'y' || buf[0] == 'Y');
+}
+
 int main(int argc, char **argv)
 {
     AppContext ctx = {0};
@@ -29,8 +42,8 @@ int main(int argc, char **argv)
 
     db_init(ctx.db);
 
-   // File ingestion
-   
+    // CLI modes
+
     if (argc > 1 && strcmp(argv[1], "ingest") == 0)
     {
         staging_init(ctx.db, &ctx.staging);
@@ -44,15 +57,13 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    // Index nGrams
-
     if (argc > 1 && strcmp(argv[1], "index") == 0)
     {
         metrics_init(&ctx);
         metrics_set_state(&ctx, STATE_PROCESSING_FILE);
 
         build_ngram_index(&ctx, ctx.db);
-        
+
         metrics_set_state(&ctx, STATE_DONE);
         metrics_report_index(&ctx);
 
@@ -60,14 +71,40 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    // Search 
-
     if (argc > 1 && strcmp(argv[1], "search") == 0)
     {
         search_repl(&ctx, ctx.db);
 
         sqlite3_close(ctx.db);
         return 0;
+    }
+
+   printf("\n================ RUN PIPELINE =================\n");
+
+    if (ask("[START] Run ingestion?"))
+    {
+        staging_init(ctx.db, &ctx.staging);
+
+        metrics_init(&ctx);
+        metrics_set_state(&ctx, STATE_FS_RUNNING);
+
+        controller_run(&ctx, WAREHOUSE_PATH);
+    }
+
+    if (ask("[CONTINUE] Run indexing?"))
+    {
+        metrics_init(&ctx);
+        metrics_set_state(&ctx, STATE_PROCESSING_FILE);
+
+        build_ngram_index(&ctx, ctx.db);
+
+        metrics_set_state(&ctx, STATE_DONE);
+        metrics_report_index(&ctx);
+    }
+
+    if (ask("[CONTINUE] Start search?"))
+    {
+        search_repl(&ctx, ctx.db);
     }
 
     sqlite3_close(ctx.db);

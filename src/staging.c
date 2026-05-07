@@ -13,7 +13,7 @@ static void exec(sqlite3 *db, const char *sql)
     char *err = NULL;
 
     if (sqlite3_exec(db, sql, 0, 0, &err) != SQLITE_OK) {
-        fprintf(stderr, "SQL error: %s\n", err);
+        fprintf(stderr, "\n[ERROR] SQL error: %s\n", err);
         sqlite3_free(err);
     }
 }
@@ -95,9 +95,7 @@ int stage_document(AppContext *ctx,
     return SQLITE_ERROR;
 }
 
-/* -------------------------------------------------- */
-/* AUTHOR                                              */
-/* -------------------------------------------------- */
+// Author
 
 int stage_author(AppContext *ctx,
     StagingContext *s,

@@ -103,22 +103,22 @@ static void file_callback_controller(const char *path, void *userdata)
         do_commit(ctx);
     }
 }
-
-/* -------------------------------------------------- */
-/* CONTROLLER RUN                                     */
-/* -------------------------------------------------- */
+// controller run
 
 void controller_run(AppContext *ctx, const char *root)
 {
-    printf("\n[INGEST] START DOCUMENT INGEST. WAIT... (This can take a while)\n");
+    printf("\n[INGEST] START DOCUMENT INGEST\n");
+    printf("[INGEST] PLEASE WAIT... (If this is the first run - expect it to take a while)\n");
 
     metrics_init(ctx);
     metrics_set_state(ctx, STATE_FS_RUNNING);
 
-    struct timespec ingest_start, ingest_end;
-    struct timespec commit_start, commit_end;
+    /* global ingest timer */
+    clock_gettime(CLOCK_MONOTONIC, &ctx->runtime.ingest_start);
 
-    clock_gettime(CLOCK_MONOTONIC, &ingest_start);
+    struct timespec commit_start;
+    struct timespec commit_end;
+    struct timespec ingest_end;
 
     ctx->ingest.parse_errors = 0;
     ctx->ingest.insert_errors = 0;
@@ -128,13 +128,15 @@ void controller_run(AppContext *ctx, const char *root)
 
     sqlite3_exec(ctx->db, "BEGIN;", NULL, NULL, NULL);
 
+    /* filesystem walk */
     list_files(root, file_callback_controller, ctx);
 
     metrics_set_state(ctx, STATE_FINALIZING);
 
+    /* flush staging -> real tables */
     staging_finalize(ctx, ctx->db);
 
-    // Commit timing
+    /* final commit timing */
     clock_gettime(CLOCK_MONOTONIC, &commit_start);
 
     sqlite3_exec(ctx->db, "COMMIT;", NULL, NULL, NULL);
@@ -143,12 +145,12 @@ void controller_run(AppContext *ctx, const char *root)
 
     metrics_on_commit(ctx, &commit_start, &commit_end);
 
-    // Ingestion time
+    /* total ingestion elapsed */
     clock_gettime(CLOCK_MONOTONIC, &ingest_end);
 
     ctx->ingest.ingestion_time_sec =
-        (ingest_end.tv_sec - ingest_start.tv_sec) +
-        (ingest_end.tv_nsec - ingest_start.tv_nsec) / 1e9;
+        (ingest_end.tv_sec - ctx->runtime.ingest_start.tv_sec) +
+        (ingest_end.tv_nsec - ctx->runtime.ingest_start.tv_nsec) / 1e9;
 
     metrics_set_state(ctx, STATE_DONE);
 

@@ -12,7 +12,7 @@ int exec_sql(sqlite3 *db, const char *sql)
 
     if (rc != SQLITE_OK)
     {
-        fprintf(stderr, "SQL error: %s\n", err ? err : "unknown");
+        fprintf(stderr, "\nSQL error: %s\n", err ? err : "unknown");
         sqlite3_free(err);
     }
 

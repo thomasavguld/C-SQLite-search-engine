@@ -31,7 +31,6 @@ static void run_search(AppContext *ctx, sqlite3 *db, const char *query)
     printf("* To exit, type '/exit' or press ctrl+c\n\n");
 }
 
-
 void search_repl(AppContext *ctx, sqlite3 *db)
 {
     char buf[512];

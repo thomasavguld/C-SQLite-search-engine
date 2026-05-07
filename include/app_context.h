@@ -25,6 +25,9 @@ typedef struct {
     long stage_calls;
     long db_commits;
 
+    struct timespec ingest_start;
+    struct timespec index_start;
+
     double last_commit_ms;
 } metricsRuntime;
 
@@ -120,4 +123,4 @@ typedef struct AppContext {
 
 } AppContext;
 
-#endif /* APP_CONTEXT_H */
+#endif 
