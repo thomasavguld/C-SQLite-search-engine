@@ -122,7 +122,7 @@ cd ~/Documents
 Clone:
 
 ```bash
-git clone <YOUR_REPO_URL>
+git clone https://github.com/thomasavguld/c-search-engine.git
 ```
 
 Go into the project:
