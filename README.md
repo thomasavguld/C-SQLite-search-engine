@@ -46,11 +46,15 @@ project/
 
 You need:
 
-- macOS or Linux
+- macOS, Linux or Windows
 - clang compiler
 - make
 - SQLite3
 - terminal access
+
+Windows support is available through MSYS2 + MinGW.
+
+The project is developed and tested primarily on macOS/Linux, but Windows works well through a Unix-like environment.
 
 ---
 
@@ -108,6 +112,53 @@ sqlite3 --version
 ```
 
 ---
+
+
+## Windows (MSYS2 + MinGW Recommended)
+
+### Install MSYS2
+
+Download and install:
+
+```text
+https://www.msys2.org/
+```
+
+After installation, open:
+
+```text
+MSYS2 UCRT64
+```
+
+### Update Package Manager
+
+Inside the MSYS2 terminal:
+
+```bash
+pacman -Syu
+```
+
+Close and reopen the terminal if requested.
+
+### Install Required Packages
+
+Run:
+
+```bash
+pacman -S mingw-w64-ucrt-x86_64-clang
+pacman -S mingw-w64-ucrt-x86_64-sqlite3
+pacman -S make
+pacman -S git
+```
+
+### Verify Installation
+
+```bash
+clang --version
+make --version
+sqlite3 --version
+```
+
 
 # Step 2 — Clone the Repository
 
