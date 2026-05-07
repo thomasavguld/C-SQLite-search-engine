@@ -173,7 +173,7 @@ cd ~/Documents
 Clone:
 
 ```bash
-git clone https://github.com/thomasavguld/c-search-engine.git
+git clone https://github.com/thomasavguld/C-SQLite-search-engine.git
 ```
 
 Go into the project:
