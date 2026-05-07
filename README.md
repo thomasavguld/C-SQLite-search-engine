@@ -173,7 +173,7 @@ cd ~/Documents
 Clone:
 
 ```bash
-git clone <YOUR_REPO_URL>
+git clone https://github.com/thomasavguld/c-search-engine.git
 ```
 
 Go into the project:
@@ -192,9 +192,7 @@ cd local-search-engine
 
 # Step 3 — Download the JSON Dataset
 
-This project expects JSON files.
-
-Example dataset source:
+This project expects JSON files from this dataset:
 
 Elsevier OA CC-BY corpus:
 
@@ -265,7 +263,7 @@ From the project root:
 make
 ```
 
-You should see compilation output.
+You should see compilation output. Or maybe not?
 
 If successful, the executable will be created here:
 
@@ -420,6 +418,11 @@ Run again:
 ./build/search
 ```
 
+Or clean and run:
+
+```bash
+make clean && make run
+```
 ---
 
 # Common Problems
