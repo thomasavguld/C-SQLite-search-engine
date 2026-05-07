@@ -7,9 +7,7 @@
 #include "yyjson.h"
 #include "model.h"
 
-/* -------------------------------------------------- */
-/* PURE PARSER ONLY                                   */
-/* -------------------------------------------------- */
+// Parse JSON files
 
 int process_file(const char *filepath, DocumentEvent *ev)
 {
@@ -32,7 +30,7 @@ int process_file(const char *filepath, DocumentEvent *ev)
         return -3;
     }
 
-    /* ------------------ document ------------------ */
+// Extract values from metadata fields
 
     ev->abstract =
         yyjson_get_str(yyjson_obj_get(root, "abstract"));
@@ -49,8 +47,7 @@ int process_file(const char *filepath, DocumentEvent *ev)
     yyjson_val *year_v = yyjson_obj_get(meta, "pub_year");
     ev->pub_year = year_v ? yyjson_get_int(year_v) : 0;
 
-    /* ------------------ authors ------------------ */
-
+// Extract authors from metadata array
     yyjson_val *authors = yyjson_obj_get(meta, "authors");
 
     ev->author_count = 0;

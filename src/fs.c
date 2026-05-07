@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// Read JSON file
 char *read_file(const char *path)
 {
     FILE *f = fopen(path, "rb");
@@ -31,10 +32,7 @@ char *read_file(const char *path)
     return buf;
 }
 
-/* -------------------------------------------------- */
-/* internal recursive walker                          */
-/* -------------------------------------------------- */
-
+// Walk through JSON files
 static void walk(const char *path, file_callback cb, void *userdata)
 {
     struct stat st;
@@ -42,13 +40,13 @@ static void walk(const char *path, file_callback cb, void *userdata)
     if (stat(path, &st) != 0)
         return;
 
-    /* ---- file ---- */
+// JSON file
     if (S_ISREG(st.st_mode)) {
         cb(path, userdata);
         return;
     }
 
-    /* ---- directory ---- */
+// Directory
     if (!S_ISDIR(st.st_mode))
         return;
 
@@ -60,12 +58,12 @@ static void walk(const char *path, file_callback cb, void *userdata)
 
     while ((entry = readdir(dir)) != NULL) {
 
-        /* skip . and .. */
+// Skip periods
         if (strcmp(entry->d_name, ".") == 0 ||
             strcmp(entry->d_name, "..") == 0)
             continue;
 
-        /* build full path */
+// Build full path
         size_t len = strlen(path) + strlen(entry->d_name) + 2;
         char *fullpath = malloc(len);
 
@@ -82,10 +80,7 @@ static void walk(const char *path, file_callback cb, void *userdata)
     closedir(dir);
 }
 
-/* -------------------------------------------------- */
-/* public API                                         */
-/* -------------------------------------------------- */
-
+// Public API
 void list_files(const char *root, file_callback cb, void *userdata)
 {
     if (!root || !cb)

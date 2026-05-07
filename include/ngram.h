@@ -4,7 +4,7 @@
 
 typedef struct AppContext AppContext;
 
-/* indexing */
+// indexing
 void ngram_index_document(AppContext *ctx,
                           sqlite3_stmt *stmt,
                           int doc_id,
@@ -13,7 +13,7 @@ void ngram_index_document(AppContext *ctx,
 void build_ngram_index(AppContext *ctx,
                        sqlite3 *db);
 
-/* search */
+// Search
 void search_query(AppContext *ctx,
                   sqlite3 *db,
                   const char *query);

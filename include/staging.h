@@ -12,12 +12,12 @@ typedef struct {
     sqlite3_stmt *stg_rel;
 } StagingContext;
 
-/* lifecycle */
+// Lifecycle
 void staging_init(sqlite3 *db, StagingContext *s);
 void staging_cleanup(StagingContext *s);
 void staging_finalize(AppContext *ctx, sqlite3 *db);
 
-/* staging API */
+// staging API
 int stage_document(AppContext *ctx,
     StagingContext *s,
     const char *doi,

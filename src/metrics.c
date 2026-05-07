@@ -5,6 +5,8 @@
 #include "metrics.h"
 #include "app_context.h"
 
+// Hellper to format time
+
 static void format_time(double sec)
 {
     int hours = (int)(sec / 3600);
@@ -16,18 +18,21 @@ static void format_time(double sec)
         minutes,
         seconds);
 }
-
+/*s
 static double sec_diff(struct timespec a, struct timespec b)
 {
     return (b.tv_sec - a.tv_sec) +
            (b.tv_nsec - a.tv_nsec) / 1e9;
 }
 
-static void now(struct timespec *t)
+tatic void now(struct timespec *t)
 {
     clock_gettime(CLOCK_MONOTONIC, t);
 }
+    */
 
+
+// Initiate and reset metrics
 
 void metrics_init(AppContext *ctx)
 {
@@ -43,8 +48,8 @@ void metrics_init(AppContext *ctx)
     ctx->search.queries = 0;
     ctx->search.total_query_time = 0.0;
 }
-
-/* -------------------------------------------------- */
+/*
+// States for pipeline
 
 static const char *state_str(PipelineState s)
 {
@@ -59,6 +64,7 @@ static const char *state_str(PipelineState s)
         default: return "UNKNOWN";
     }
 }
+    */
 
 void metrics_set_state(AppContext *ctx, PipelineState s)
 {
@@ -75,8 +81,7 @@ void metrics_set_state(AppContext *ctx, PipelineState s)
     */
 }
 
-/* -------------------------------------------------- */
-
+// File metrics
 void metrics_on_file(AppContext *ctx)
 {
     //if (ctx->ingest.files_processed % 1000 != 0)
@@ -98,25 +103,24 @@ void metrics_on_file(AppContext *ctx)
         fflush(stdout);
 }
 
-/* -------------------------------------------------- */
-
+/*
+// Commit metrics
 void metrics_on_commit(AppContext *ctx,
                        struct timespec *start,
                        struct timespec *end)
 {
-    double sec = sec_diff(*start, *end);
-/*
+     double sec = sec_diff(*start, *end);
+
     printf("\r[COMMIT] %.6f sec | files=%ld | docs=%ld | rel=%ld",
         sec,
         ctx->ingest.tx_files_since_commit,
         ctx->ingest.doc_ops,
         ctx->ingest.rel_ops
-    );
-
-*/    
+    );  
 }
+*/ 
 
-/* -------------------------------------------------- */
+// Another metric reset =)
 
 void metrics_reset_tx(AppContext *ctx)
 {
@@ -126,11 +130,11 @@ void metrics_reset_tx(AppContext *ctx)
     ctx->ingest.rel_ops = 0;
 }
 
-/* -------------------------------------------------- */
+// Reports
 
 void metrics_report_ingest(AppContext *ctx)
 {   
-    printf("\n================ DOCUMENT INGEST REPORT ================\n");
+    printf("\n\n================ DOCUMENT INGEST REPORT ===============\n");
 
     printf("  files processed : %ld\n", ctx->ingest.files_processed);
     printf("  parse errors    : %ld\n", ctx->ingest.parse_errors);
@@ -140,17 +144,17 @@ void metrics_report_ingest(AppContext *ctx)
     printf("  time elapsed    : ");
     format_time(ctx->ingest.ingestion_time_sec);
     printf("\n");
-    printf("=============================================\n\n");
+    printf("========================================================\n\n");
 }
 
 void metrics_report_index(AppContext *ctx)
 {   
-    printf("\n================ NGRAM INDEX REPORT =================\n");
+    printf("\n================ NGRAM INDEX REPORT ===================\n");
     printf("  docs indexed    : %ld\n", ctx->index.docs_indexed);
     printf("  grams generated : %ld\n", ctx->index.grams_generated);
     printf("  grams inserted  : %ld\n", ctx->index.grams_inserted);
     printf("  time elapsed    : ");
     format_time(ctx->index.indexing_time);
     printf("\n");
-    printf("=============================================\n\n");
+    printf("========================================================\n\n");
 }

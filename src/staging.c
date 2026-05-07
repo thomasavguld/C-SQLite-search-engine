@@ -154,10 +154,8 @@ int stage_relation(AppContext *ctx,
     ctx->ingest.insert_errors++;
     return SQLITE_ERROR;
 }
-
-/* -------------------------------------------------- */
-/* finalize                                            */
-/* -------------------------------------------------- */
+/*
+// Finalize
 
 void staging_finalize(AppContext *ctx, sqlite3 *db)
 {
@@ -182,11 +180,9 @@ void staging_finalize(AppContext *ctx, sqlite3 *db)
     exec(db, "DELETE FROM stg_authors;");
     exec(db, "DELETE FROM stg_doc_authors;");
 }
+ */
 
-/* -------------------------------------------------- */
-/* cleanup                                            */
-/* -------------------------------------------------- */
-
+ //Cleanup
 void staging_cleanup(StagingContext *s)
 {
     sqlite3_finalize(s->stg_doc);

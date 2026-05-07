@@ -6,6 +6,9 @@
 #include "app_context.h"
 #include "ngram.h"
 
+// Helper to format time
+// Yeah, it's duplicated. Sue me
+
 static void format_time(double sec)
 {
     int hours = (int)(sec / 3600);
@@ -27,8 +30,7 @@ static inline char norm(char c)
     return c;
 }
 
-//Insert helper
-
+//Insert gram
 static void insert_gram(AppContext *ctx,
   sqlite3_stmt *stmt,
   const char *gram,
@@ -51,10 +53,7 @@ sqlite3_errmsg(sqlite3_db_handle(stmt)));
 }
 }
 
-/* -------------------------------------------------- */
-/* index one document                                 */
-/* -------------------------------------------------- */
-
+// Partialize text in document to ngrams
 void ngram_index_document(AppContext *ctx,
                           sqlite3_stmt *stmt,
                           int doc_id,
@@ -87,7 +86,7 @@ void ngram_index_document(AppContext *ctx,
 }
 
 
-
+// Build the index
 void build_ngram_index(AppContext *ctx,
     sqlite3 *db)
 {
@@ -124,7 +123,7 @@ return;
 printf("\n[INDEX] INDEX BUILD START\n");
 printf("[INDEX] PLEASE WAIT... (If this is the first run - expect it to take a while)\n");
 
-/* START TIMER (KORREKT: ctx) */
+//Start gram insertion loop
 clock_gettime(CLOCK_MONOTONIC, &ctx->runtime.index_start);
 
 sqlite3_exec(db, "BEGIN;", 0, 0, 0);
@@ -163,7 +162,7 @@ format_time(elapsed);
 
 fflush(stdout);
 }
-
+// Commiting 
 printf("\n[INDEX] FINALIZING INDEX\n");
 printf("[INDEX] PLEASE WAIT...\n");
 
@@ -172,7 +171,6 @@ sqlite3_exec(db, "COMMIT;", 0, 0, 0);
 sqlite3_finalize(select_stmt);
 sqlite3_finalize(insert_stmt);
 
-/* FINAL METRICS */
 ctx->index.docs_indexed = count;
 
 struct timespec end;
@@ -184,11 +182,11 @@ ctx->index.indexing_time =
 }
 
 // SEARCH
-
 void search_query(AppContext *ctx,
                   sqlite3 *db,
                   const char *query)
-{
+{   (void)ctx;
+    
     if (!query || strlen(query) < 3)
         return;
 
@@ -206,6 +204,7 @@ void search_query(AppContext *ctx,
         gcount++;
     }
 
+// Find document    
     char sql[1024] =
     "SELECT d.id, d.title, d.abstract, "
     "COUNT(*) AS hits "
@@ -238,6 +237,9 @@ void search_query(AppContext *ctx,
         sqlite3_bind_text(stmt, i + 1,
                           grams[i], -1, SQLITE_TRANSIENT);
     }
+
+
+// Query output
 
     int i = 1;
 

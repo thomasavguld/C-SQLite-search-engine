@@ -4,6 +4,8 @@
 #include "db.h"
 #include "app_context.h"
 
+// Execute SQL function
+
 int exec_sql(sqlite3 *db, const char *sql)
 {
     char *err = NULL;
@@ -19,6 +21,8 @@ int exec_sql(sqlite3 *db, const char *sql)
     return rc;
 }
 
+// Initiate database and setup ingestion parameters
+
 int db_init(sqlite3 *db)
 {
     sqlite3_busy_timeout(db, 5000);
@@ -30,10 +34,10 @@ int db_init(sqlite3 *db)
     exec_sql(db, "PRAGMA page_size=4096;");
     exec_sql(db, "PRAGMA cache_spill=OFF;");
     exec_sql(db, "PRAGMA wal_autocheckpoint=50000;");
+    
+// Final tables
 
-    // Final tables
-
-    // Docs
+// Docs
     exec_sql(db,
              "CREATE TABLE IF NOT EXISTS documents ("
              "id INTEGER PRIMARY KEY,"
@@ -44,7 +48,7 @@ int db_init(sqlite3 *db)
              "pub_year INTEGER"
              ");");
 
-    // Authors
+// Authors
     exec_sql(db,
              "CREATE TABLE IF NOT EXISTS authors ("
              "id INTEGER PRIMARY KEY,"
@@ -54,7 +58,7 @@ int db_init(sqlite3 *db)
              "UNIQUE(first_name, last_name, initial)"
              ");");
 
-    // Docs-authors relations
+// Docs-authors relations
     exec_sql(db,
              "CREATE TABLE IF NOT EXISTS documents_x_authors ("
              "document_id INTEGER NOT NULL,"
@@ -63,16 +67,16 @@ int db_init(sqlite3 *db)
              "PRIMARY KEY(document_id, author_id)"
              ");");
 
-    // Ngrams
+// Ngrams/tokens
     exec_sql(db,
              "CREATE TABLE IF NOT EXISTS ngrams ("
              "gram TEXT NOT NULL,"
              "doc_id INTEGER NOT NULL"
              ");");
 
-    /* INDEXES */
+// Indexes
 
-    // Author-document relations
+// Author-document relations
     exec_sql(db,
              "CREATE INDEX IF NOT EXISTS idx_doc_auth "
              "ON documents_x_authors(document_id);");
@@ -80,7 +84,8 @@ int db_init(sqlite3 *db)
     exec_sql(db,
              "CREATE INDEX IF NOT EXISTS idx_auth_doc "
              "ON documents_x_authors(author_id);");
-    // Ngrams
+
+// Ngrams/tokens
     exec_sql(db,
              "CREATE INDEX IF NOT EXISTS idx_ngrams_gram "
              "ON ngrams(gram);");

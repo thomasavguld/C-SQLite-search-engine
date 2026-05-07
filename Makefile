@@ -12,7 +12,8 @@ SRC = src/main.c \
       src/search.c \
       src/ngram.c \
       src/doc_view.c \
-      external/yyjson/src/yyjson.c
+      external/yyjson/src/yyjson.c \
+       src/staging_finalize.c
 
 # build objects into build/
 OBJ = $(SRC:%.c=build/%.o)
@@ -49,5 +50,5 @@ run: all
 	@./$(OUT)
 
 clean:
-	@echo "Cleaning"
+	@echo "Cleaning database"
 	@rm -rf build db/c_search.db*

@@ -2,6 +2,8 @@
 #include <sqlite3.h>
 #include "doc_view.h"
 
+
+// Paginate Abstract output
 static void paginate_text_chars(const char *text, int width, int height)
 {
     if (!text)
@@ -33,6 +35,7 @@ static void paginate_text_chars(const char *text, int width, int height)
     printf("\n");
 }
 
+// Open document
 void open_doc(sqlite3 *db, int doc_id)
 {
     sqlite3_stmt *stmt;
@@ -52,18 +55,19 @@ void open_doc(sqlite3 *db, int doc_id)
         const char *issn     = (const char *)sqlite3_column_text(stmt, 3);
         int year             = sqlite3_column_int(stmt, 4);
 
-        printf("\n================ DOCUMENT ================\n");
+        printf("\n================ DOCUMENT ============================\n");
+        
         printf("DOI   : %s\n", doi ? doi : "(null)");
         printf("Title : %s\n", title ? title : "(null)");
         printf("ISSN  : %s\n", issn ? issn : "(null)");
         printf("Year  : %d\n\n", year);
 
-        paginate_text_chars(abstract, 80, 20);
+        paginate_text_chars(abstract, 120, 20);
     }
 
     sqlite3_finalize(stmt);
 
-    /* authors */
+// Link authors to document
     sqlite3_prepare_v2(db,
         "SELECT a.first_name, a.last_name, r.author_order "
         "FROM documents_x_authors r "
@@ -90,7 +94,7 @@ void open_doc(sqlite3 *db, int doc_id)
 
     sqlite3_finalize(stmt);
 
-    printf("=========================================\n\n");
+    printf("========================================================\n\n");
     printf("* To search new document, type query\n");
     printf("* To exit, type '/exit' or press ctrl+c\n\n");
 }

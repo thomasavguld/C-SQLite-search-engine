@@ -3,7 +3,6 @@
 
 #include <stddef.h>
 
-/* callback-typ måste definieras först */
 typedef void (*file_callback)(const char *path, void *userdata);
 
 char *read_file(const char *path);

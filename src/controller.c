@@ -9,16 +9,12 @@
 #include "fs.h"
 #include "app_context.h"
 
-/* -------------------------------------------------- */
-/* forward declarations                               */
-/* -------------------------------------------------- */
+// Forward declarations
 
 static void file_callback_controller(const char *path, void *userdata);
 static void do_commit(AppContext *ctx);
 
-/* -------------------------------------------------- */
-/* FILE CALLBACK                                      */
-/* -------------------------------------------------- */
+// File callback
 
 static void file_callback_controller(const char *path, void *userdata)
 {
@@ -36,9 +32,7 @@ static void file_callback_controller(const char *path, void *userdata)
         return;
     }
 
-    /* ----------------------------- */
-    /* document staging              */
-    /* ----------------------------- */
+// Document staging
 
     if (stage_document(ctx,
         &ctx->staging,
@@ -55,9 +49,7 @@ static void file_callback_controller(const char *path, void *userdata)
     ctx->ingest.doc_ops++;
     ctx->ingest.total_doc_ops++;
 
-    /* ----------------------------- */
-    /* author + relation staging     */
-    /* ----------------------------- */
+// Author + relation staging
 
     for (int i = 0; i < ev.author_count; i++) {
 
@@ -90,9 +82,7 @@ static void file_callback_controller(const char *path, void *userdata)
         ctx->ingest.total_rel_ops++;
     }
 
-    /* ----------------------------- */
-    /* metrics                       */
-    /* ----------------------------- */
+   //Metrics
 
     ctx->ingest.files_processed++;
     metrics_on_file(ctx);
@@ -143,7 +133,7 @@ void controller_run(AppContext *ctx, const char *root)
 
     clock_gettime(CLOCK_MONOTONIC, &commit_end);
 
-    metrics_on_commit(ctx, &commit_start, &commit_end);
+    //metrics_on_commit(ctx, &commit_start, &commit_end);
 
     /* total ingestion elapsed */
     clock_gettime(CLOCK_MONOTONIC, &ingest_end);
@@ -170,7 +160,7 @@ static void do_commit(AppContext *ctx)
 
     clock_gettime(CLOCK_MONOTONIC, &end);
 
-    metrics_on_commit(ctx, &start, &end);
+    //metrics_on_commit(ctx, &start, &end);
 
     ctx->ingest.tx_files_since_commit = 0;
     ctx->ingest.doc_ops = 0;

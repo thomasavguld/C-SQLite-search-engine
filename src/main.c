@@ -18,18 +18,25 @@
 #define WAREHOUSE_PATH "./warehouse"
 #endif
 
+// Continue step function
 static int ask(const char *msg)
 {
     char buf[16];
 
-    printf("%s (y/n + enter): ", msg);
-    fflush(stdout);
+    while (1)
+    {
+        printf("%s Press Enter. (Ctrl+c to abort): ", msg);
+        fflush(stdout);
 
-    if (!fgets(buf, sizeof(buf), stdin))
-        return 0;
+        if (!fgets(buf, sizeof(buf), stdin))
+            return 0;
 
-    return (buf[0] == 'y' || buf[0] == 'Y');
+        if (buf[0] == '\n')
+            return 1;
+    }
 }
+
+// Main function
 
 int main(int argc, char **argv)
 {
@@ -42,7 +49,7 @@ int main(int argc, char **argv)
 
     db_init(ctx.db);
 
-    // CLI modes
+// CLI modes
 
     if (argc > 1 && strcmp(argv[1], "ingest") == 0)
     {
@@ -79,7 +86,7 @@ int main(int argc, char **argv)
         return 0;
     }
 
-   printf("\n================ RUN PIPELINE =================\n");
+   printf("\n================ RUN PIPELINE =========================\n");
 
     if (ask("[START] Run ingestion?"))
     {
@@ -102,7 +109,7 @@ int main(int argc, char **argv)
         metrics_report_index(&ctx);
     }
 
-    if (ask("[CONTINUE] Start search?"))
+    if (ask("[CONTINUE] Open document search?"))
     {
         search_repl(&ctx, ctx.db);
     }

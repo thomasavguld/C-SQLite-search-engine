@@ -9,10 +9,10 @@
 #include "app_context.h"
 
 
-
+// Run search query and measure latency
 static void run_search(AppContext *ctx, sqlite3 *db, const char *query)
 {
-    printf("Wait. Searching...\n");
+    printf("> Wait. Searching...\n");
     
     struct timespec t0, t1;
 
@@ -27,16 +27,18 @@ static void run_search(AppContext *ctx, sqlite3 *db, const char *query)
 
     printf("\nSearch latency: %.3f ms\n\n", dt * 1000.0);
     printf("* To open full document, type 'open [document id]'\n");
-    printf("* To search new document, type query\n");
+    printf("* To search for another document, type new query\n");
     printf("* To exit, type '/exit' or press ctrl+c\n\n");
 }
 
+// Construct and output query reply
 void search_repl(AppContext *ctx, sqlite3 *db)
 {
     char buf[512];
 
-    printf("\n================ DOCUMENT SEARCH =================\n");
-    printf("[SEARCH] Type query (or '/exit' to exit):\n\n");
+    printf("\n================ DOCUMENT SEARCH =====================\n");
+    printf("[SEARCH] Type in query below (or '/exit' to exit):\n\n");
+  
 
     while (1)
 {
@@ -48,7 +50,7 @@ void search_repl(AppContext *ctx, sqlite3 *db)
 
     buf[strcspn(buf, "\n")] = 0;
 
-    /* trim trailing spaces */
+// Trim trailing spaces
     int len = strlen(buf);
     while (len > 0 && buf[len - 1] == ' ')
     {
@@ -56,19 +58,19 @@ void search_repl(AppContext *ctx, sqlite3 *db)
         len--;
     }
 
-    /* trim leading spaces */
+// Trim leading spaces
     while (buf[0] == ' ')
         memmove(buf, buf + 1, strlen(buf));
 
-    /* ignore empty input */
+// Ignore empty input
     if (buf[0] == '\0')
         continue;
 
-    /* exit */
+// Exit
     if (strcmp(buf, "/exit") == 0)
         break;
 
-    /* open document */
+// Open document from query result list
     if (strncmp(buf, "open ", 5) == 0)
     {
         int id = atoi(buf + 5);
@@ -76,7 +78,7 @@ void search_repl(AppContext *ctx, sqlite3 *db)
         continue;
     }
 
-    /* search guard */
+// Search guard
     if (strlen(buf) < 3)
     {
         printf("Too short\n");

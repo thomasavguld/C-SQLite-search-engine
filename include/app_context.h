@@ -7,15 +7,12 @@
 #include "staging.h"
 #include "pipeline.h"
 
-/* -------------------------------------------------- */
-/* runtime metrics (pipeline + sampling)              */
-/* -------------------------------------------------- */
-
+// Runtime metrics
 typedef struct {
     struct timespec global_start;
     struct timespec last_sample;
 
-    long last_files;
+long last_files;
 
     double fs_time;
     double stage_time;
@@ -31,10 +28,7 @@ typedef struct {
     double last_commit_ms;
 } metricsRuntime;
 
-/* -------------------------------------------------- */
-/* INGEST METRICS                                    */
-/* -------------------------------------------------- */
-
+// Ingest metrics
 typedef struct {
     long files_processed;
     long parse_errors;
@@ -58,9 +52,7 @@ typedef struct {
     double ingestion_time_sec;
 } ingestMetrics;
 
-/* -------------------------------------------------- */
-/* INDEX (NGRAM) METRICS                             */
-/* -------------------------------------------------- */
+// Index (ngram) ingest metrics
 
 typedef struct {
     long grams_inserted;
@@ -69,52 +61,36 @@ typedef struct {
     double indexing_time;
 } indexMetrics;
 
-/* -------------------------------------------------- */
-/* SEARCH METRICS                                    */
-/* -------------------------------------------------- */
-
+// Search metrics
 typedef struct {
     double total_query_time;
     long queries;
 } searchMetrics;
 
-/* -------------------------------------------------- */
-/* main application context                          */
-/* -------------------------------------------------- */
-
+// Main application context
 typedef struct AppContext {
 
-    /* =========================
-     * database layer
-     * ========================= */
+// Db layer
     sqlite3 *db;
 
     sqlite3_stmt *stmt_document;
     sqlite3_stmt *stmt_author;
     sqlite3_stmt *stmt_document_x_author;
 
-    /* =========================
-     * staging layer
-     * ========================= */
+   //STaging
     StagingContext staging;
 
-    /* =========================
-     * pipeline state
-     * ========================= */
+    // Pipeline state
     PipelineState state;
 
-    /* =========================
-     * metrics
-     * ========================= */
+    // Other metrics
     metricsRuntime runtime;
 
     ingestMetrics ingest;
     indexMetrics index;
     searchMetrics search;
 
-    /* =========================
-     * timing (optional profiling hooks)
-     * ========================= */
+    // Timing
     struct timespec start_time;
     struct timespec end_time;
 
