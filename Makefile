@@ -50,5 +50,5 @@ run: all
 	@./$(OUT)
 
 clean:
-	@echo "Cleaning database"
+	@echo "Deleting build artifacts and database "
 	@rm -rf build db/c_search.db*
